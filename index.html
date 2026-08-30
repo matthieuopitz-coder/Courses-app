@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Panier &amp; Fourneaux</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="theme-color" content="#2F4A3C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Courses">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -41,7 +48,7 @@
     display:flex;align-items:baseline;justify-content:space-between;
     margin-bottom:14px;
   }
-  .header h1{font-size:26px;color:var(--primary-dark);}
+  .header h1{font-size:30px;color:var(--primary-dark);}
   .header .tag{
     font-size:11px;text-transform:uppercase;letter-spacing:.08em;
     color:var(--muted);font-weight:600;
@@ -78,7 +85,7 @@
 
   .product-row{
     display:flex;align-items:center;justify-content:space-between;
-    padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer;
+    padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer;
   }
   .product-row:last-child{border-bottom:none;}
   .product-row .pr-name{font-size:15px;font-weight:500;}
@@ -106,14 +113,16 @@
   .btn-primary:active{background:var(--primary-dark);}
   .btn-accent{background:var(--accent);color:#fff;}
   .btn-ghost{background:transparent;color:var(--primary);border:1px solid var(--line);}
+  .btn-soft-primary{background:#DCEADF;color:var(--primary-dark);border:1px solid #C3DBC9;}
+  .btn-soft-danger{background:#F3D9D2;color:#9A3420;border:1px solid #E6BDB0;}
   .btn-danger{background:transparent;color:var(--accent);}
   .btn-block{width:100%;}
   .btn-sm{padding:8px 12px;font-size:13px;}
   .fab{
-    position:fixed;bottom:88px;right:18px;width:54px;height:54px;border-radius:50%;
-    background:var(--accent);color:#fff;font-size:26px;
+    position:fixed;bottom:88px;right:18px;width:81px;height:81px;border-radius:50%;
+    background:var(--primary);color:#fff;font-size:39px;
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 6px 16px rgba(193,68,46,.35);border:none;cursor:pointer;z-index:20;
+    box-shadow:0 6px 16px rgba(47,74,60,.4);border:none;cursor:pointer;z-index:20;
   }
 
   .tabbar{
@@ -246,7 +255,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.8";
+const APP_VERSION = "V1.9";
 const UNITS = [
   {v:'nombre',l:'nombre'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -445,17 +454,26 @@ function updateProductsList(){
   attachProductRowHandlers(container);
 }
 
+function refreshProductStoreSelect(){
+  const sel = document.getElementById('f-pstore');
+  if(!sel || !window._editingProduct) return;
+  sel.innerHTML = renderStoreOptions(window._editingProduct.storeId);
+}
+
 function renderProduitsTab(){
-  let html = `<div class="header-row">
-    <div><h1>Produits</h1><span class="tag">${state.products.length} produit${state.products.length>1?'s':''}</span></div>
-    <button class="link-btn" data-manage-stores>Gérer les magasins →</button>
-  </div>`;
+  let html = `<div class="header"><h1>Produits</h1><span class="tag">${state.products.length} produit${state.products.length>1?'s':''}</span></div>`;
   if(state.products.length>0){
     html += `<input type="text" class="search-input" id="product-search" placeholder="Rechercher un produit…" value="${escapeHtml(productSearchQuery)}">`;
   }
   html += `<div id="products-list-container">${renderProductsListInner()}</div>`;
   html += `<button class="fab" data-new-product>+</button>`;
   return html;
+}
+
+function renderStoreOptions(selectedId){
+  return `<option value="">Aucun</option>` +
+    state.stores.map(s=>`<option value="${s.id}" ${selectedId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('') +
+    `<option value="__manage__">⚙ Gérer les magasins…</option>`;
 }
 
 function productFormModal(product){
@@ -471,10 +489,7 @@ function productFormModal(product){
       </div>
       <div class="field">
         <label>Magasin</label>
-        <select id="f-pstore">
-          <option value="">Aucun</option>
-          ${state.stores.map(s=>`<option value="${s.id}" ${p.storeId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
-        </select>
+        <select id="f-pstore">${renderStoreOptions(p.storeId)}</select>
       </div>
       <div class="row2" style="margin-top:16px;">
         ${isEdit?`<button class="btn btn-danger" data-delete-product="${p.id}">Supprimer</button>`:''}
@@ -684,7 +699,7 @@ function renderRecipeFormBody(){
 /* ---------- COURSES TAB ---------- */
 function renderCoursesTab(){
   let html = `<div class="header"><h1>Courses</h1></div>`;
-  html += `<button class="btn btn-ghost btn-block" data-add-to-list style="margin-bottom:18px;">+ Ajouter un produit à la liste</button>`;
+  html += `<button class="btn btn-soft-primary btn-block" data-add-to-list style="margin-bottom:18px;">+ Ajouter un produit à la liste</button>`;
 
   if(!state.shoppingList.checklist || state.shoppingList.checklist.length===0){
     html += `<div class="empty"><div class="em-icon">🛒</div><p>Ta liste de courses est vide.</p><p>Ajoute des produits ici, ou envoie un plat depuis l'onglet Plats.</p></div>`;
@@ -721,8 +736,8 @@ function renderCoursesTab(){
     });
     html += `</div>`;
   });
-  html += `<button class="btn btn-ghost btn-block" data-remove-purchased style="margin-bottom:10px;">Supprimer les éléments achetés</button>`;
-  html += `<button class="btn btn-ghost btn-block" data-clear-list style="margin-bottom:20px;">Vider la liste</button>`;
+  html += `<button class="btn btn-soft-danger btn-block" data-remove-purchased style="margin-bottom:10px;">Supprimer les éléments achetés</button>`;
+  html += `<button class="btn btn-soft-danger btn-block" data-clear-list style="margin-bottom:20px;">Vider la liste</button>`;
   return html;
 }
 
@@ -779,7 +794,15 @@ function modalInputHandler(e){
   }
 }
 function modalChangeHandler(e){
-  if(e.target.id==='f-pstore' && window._editingProduct){ window._editingProduct.storeId = e.target.value; return; }
+  if(e.target.id==='f-pstore' && window._editingProduct){
+    if(e.target.value === '__manage__'){
+      e.target.value = window._editingProduct.storeId || '';
+      showModal(storesManagerModal());
+    } else {
+      window._editingProduct.storeId = e.target.value;
+    }
+    return;
+  }
   if(e.target.id==='photo-input'){ handlePhotoSelected(e.target.files[0]); return; }
   if(e.target.matches('select[data-ing-field="productId"]')){
     const idx = parseInt(e.target.getAttribute('data-ing-idx'));
@@ -830,9 +853,12 @@ function modalClickHandler(e){
   const overlay = e.currentTarget;
   if(e.target.hasAttribute('data-overlay') || e.target.closest('[data-close-modal]')){
     const isRecipeModal = !!overlay.querySelector('#recipe-form');
+    const isProductModal = !!overlay.querySelector('#f-pname');
+    const isStoresManager = !!overlay.querySelector('#stores-list');
     overlay.remove();
     if(isRecipeModal) window._editingRecipe=null;
-    window._editingProduct=null;
+    if(isProductModal) window._editingProduct=null;
+    if(isStoresManager) refreshProductStoreSelect();
     window._pendingIngredientIdx=null;
     return;
   }
@@ -1030,8 +1056,6 @@ function attachHandlers(){
   }
   const newProdBtn = app.querySelector('[data-new-product]');
   if(newProdBtn) newProdBtn.addEventListener('click', ()=>showModal(productFormModal(null)));
-  const manageStoresBtn = app.querySelector('[data-manage-stores]');
-  if(manageStoresBtn) manageStoresBtn.addEventListener('click', ()=>showModal(storesManagerModal()));
 
   const newRecipeBtn = app.querySelector('[data-new-recipe]');
   if(newRecipeBtn) newRecipeBtn.addEventListener('click', ()=>recipeDetailModal(null));

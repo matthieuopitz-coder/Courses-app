@@ -1,7 +1,11 @@
-const CACHE = "courses-app-v1";
+const CACHE = "courses-app-v2";
 const FILES = [
   "./",
-  "./index.html"
+  "./index.html",
+  "./manifest.json",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./apple-touch-icon.png"
 ];
 
 // Installation : met en cache les fichiers de base et s'active immédiatement
