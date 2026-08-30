@@ -36,7 +36,7 @@
     letter-spacing:-0.01em;
     margin:0;
   }
-  #app{max-width:520px;margin:0 auto;padding:20px 16px 8px;}
+  #app{max-width:520px;margin:0 auto;padding:20px 16px 8px;min-height:calc(100vh - 76px);display:flex;flex-direction:column;}
   .header{
     display:flex;align-items:baseline;justify-content:space-between;
     margin-bottom:14px;
@@ -61,9 +61,15 @@
   }
   .recipe-card{display:flex;align-items:center;gap:12px;cursor:pointer;}
   .recipe-card .rc-thumb{
-    width:46px;height:46px;border-radius:10px;background:var(--accent-soft);
+    width:46px;height:46px;border-radius:10px;background:var(--accent-soft);overflow:hidden;
     display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;
   }
+  .search-input{
+    width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:20px;
+    font-family:'Inter',sans-serif;font-size:14.5px;background:var(--surface);color:var(--ink);
+    margin-bottom:14px;
+  }
+  .search-input:focus{outline:2px solid var(--primary);outline-offset:1px;}
   .recipe-card .rc-main{flex:1;min-width:0;}
   .recipe-card h3{font-size:17px;color:var(--ink);}
   .recipe-card .rc-meta{font-size:12.5px;color:var(--muted);margin-top:3px;}
@@ -81,6 +87,10 @@
     border-radius:20px;padding:3px 10px;
   }
   .product-row .pr-store.none{opacity:.6;font-style:italic;}
+  .product-row.in-list{
+    background:#E1EEE3;margin-left:-12px;margin-right:-12px;
+    padding-left:12px;padding-right:12px;border-radius:8px;
+  }
   .product-row .pr-right{display:flex;align-items:center;gap:8px;}
   .pr-edit{
     background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;
@@ -223,7 +233,7 @@
     background:var(--primary-dark);color:#fff;padding:10px 18px;border-radius:24px;
     font-size:13.5px;font-weight:600;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.25);
   }
-  .footer-version{text-align:center;color:var(--muted);font-size:11px;padding:18px 0 6px;}
+  .footer-version{text-align:center;color:var(--muted);font-size:11px;padding:24px 0 6px;margin-top:auto;}
 </style>
 </head>
 <body>
@@ -236,7 +246,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.7";
+const APP_VERSION = "V1.8";
 const UNITS = [
   {v:'nombre',l:'nombre'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -380,33 +390,70 @@ function render(){
   else app.innerHTML = renderCoursesTab();
   app.innerHTML += `<div class="footer-version">Panier &amp; Fourneaux · ${APP_VERSION}</div>`;
   attachHandlers();
+  if(currentTab==='plats') ensurePlatsThumbnails();
 }
 
 /* ---------- PRODUITS TAB ---------- */
+let productSearchQuery = '';
+
+function renderProductsListInner(){
+  if(state.products.length===0){
+    return `<div class="empty"><div class="em-icon">🥕</div><p>Aucun produit pour l'instant.</p><p>Ajoute tes produits du quotidien avec le bouton +</p></div>`;
+  }
+  const q = productSearchQuery.trim().toLowerCase();
+  const filtered = state.products.filter(p=>p.name.toLowerCase().includes(q));
+  if(filtered.length===0){
+    return `<div class="empty"><div class="em-icon">🔍</div><p>Aucun produit ne correspond à ta recherche.</p></div>`;
+  }
+  const inListIds = new Set(state.shoppingList.checklist.map(it=>it.productId));
+  let html = `<div class="card" style="padding:4px 12px;">`;
+  filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    const sn = storeName(p.storeId);
+    const inList = inListIds.has(p.id);
+    html += `<div class="product-row ${inList?'in-list':''}" data-add-product="${p.id}">
+      <span class="pr-name">${escapeHtml(p.name)}</span>
+      <div class="pr-right">
+        <span class="pr-store ${sn?'':'none'}">${sn?escapeHtml(sn):'Sans magasin'}</span>
+        <button class="pr-edit" data-edit-product="${p.id}" title="Modifier">✎</button>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function attachProductRowHandlers(container){
+  if(!container) return;
+  container.querySelectorAll('[data-add-product]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const p = findProduct(el.getAttribute('data-add-product'));
+      if(p) showModal(productAddToListModal(p));
+    });
+  });
+  container.querySelectorAll('[data-edit-product]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const p = findProduct(el.getAttribute('data-edit-product'));
+      if(p) showModal(productFormModal(p));
+    });
+  });
+}
+function updateProductsList(){
+  const container = document.getElementById('products-list-container');
+  if(!container) return;
+  container.innerHTML = renderProductsListInner();
+  attachProductRowHandlers(container);
+}
+
 function renderProduitsTab(){
   let html = `<div class="header-row">
     <div><h1>Produits</h1><span class="tag">${state.products.length} produit${state.products.length>1?'s':''}</span></div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-      <button class="link-btn" data-manage-stores>Gérer les magasins →</button>
-      <button class="link-btn" data-backup>Sauvegarder / Restaurer →</button>
-    </div>
+    <button class="link-btn" data-manage-stores>Gérer les magasins →</button>
   </div>`;
-  if(state.products.length===0){
-    html += `<div class="empty"><div class="em-icon">🥕</div><p>Aucun produit pour l'instant.</p><p>Ajoute tes produits du quotidien avec le bouton +</p></div>`;
-  } else {
-    html += `<div class="card" style="padding:4px 12px;">`;
-    state.products.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
-      const sn = storeName(p.storeId);
-      html += `<div class="product-row" data-add-product="${p.id}">
-        <span class="pr-name">${escapeHtml(p.name)}</span>
-        <div class="pr-right">
-          <span class="pr-store ${sn?'':'none'}">${sn?escapeHtml(sn):'Sans magasin'}</span>
-          <button class="pr-edit" data-edit-product="${p.id}" title="Modifier">✎</button>
-        </div>
-      </div>`;
-    });
-    html += `</div>`;
+  if(state.products.length>0){
+    html += `<input type="text" class="search-input" id="product-search" placeholder="Rechercher un produit…" value="${escapeHtml(productSearchQuery)}">`;
   }
+  html += `<div id="products-list-container">${renderProductsListInner()}</div>`;
   html += `<button class="fab" data-new-product>+</button>`;
   return html;
 }
@@ -453,19 +500,6 @@ function productAddToListModal(product){
   </div>`;
 }
 
-function backupModal(){
-  return `<div class="modal-overlay" data-overlay>
-    <div class="modal">
-      <div class="modal-head"><h2>Sauvegarder / Restaurer</h2><button class="modal-close" data-close-modal>✕</button></div>
-      <p class="subtle" style="margin-bottom:16px;line-height:1.5;">Vos données se synchronisent normalement toutes seules entre ton téléphone et celui de ta copine. Ceci est juste une assurance supplémentaire : un fichier de secours à garder de côté. Les photos des plats ne sont pas incluses.</p>
-      <button class="btn btn-primary btn-block" data-do-export style="margin-bottom:10px;">⬇️ Exporter mes données</button>
-      <input type="file" id="import-file-input" accept="application/json" style="display:none;">
-      <button class="btn btn-ghost btn-block" data-do-import>⬆️ Importer une sauvegarde</button>
-      <p class="subtle" id="import-status" style="margin-top:10px;"></p>
-    </div>
-  </div>`;
-}
-
 function storesManagerModal(){
   return `<div class="modal-overlay" data-overlay>
     <div class="modal">
@@ -485,33 +519,81 @@ function renderStoreChips(){
 }
 
 /* ---------- PLATS TAB ---------- */
+let platsSearchQuery = '';
+let photoCache = {};
+let photoCacheLoading = {};
+
+function renderPlatsListInner(){
+  if(state.recipes.length===0){
+    return `<div class="empty"><div class="em-icon">🍳</div><p>Aucune recette pour l'instant.</p><p>Ajoute ton premier plat avec le bouton +</p></div>`;
+  }
+  const q = platsSearchQuery.trim().toLowerCase();
+  const filtered = state.recipes.filter(r=>r.name.toLowerCase().includes(q));
+  if(filtered.length===0){
+    return `<div class="empty"><div class="em-icon">🔍</div><p>Aucun plat ne correspond à ta recherche.</p></div>`;
+  }
+  let html = '';
+  filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{
+    const thumbContent = (r.hasPhoto && photoCache[r.id])
+      ? `<img src="${photoCache[r.id]}" style="width:100%;height:100%;object-fit:cover;">`
+      : (r.hasPhoto ? '📷' : '🍽️');
+    html += `<div class="card recipe-card" data-open-recipe="${r.id}">
+      <div class="rc-thumb">${thumbContent}</div>
+      <div class="rc-main">
+        <h3>${escapeHtml(r.name)}</h3>
+        <div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${r.baseServings} pers.</div>
+      </div>
+      <div class="rc-chevron">›</div>
+    </div>`;
+  });
+  return html;
+}
+
+function attachPlatsRowHandlers(container){
+  if(!container) return;
+  container.querySelectorAll('[data-open-recipe]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const r = state.recipes.find(x=>x.id===el.getAttribute('data-open-recipe'));
+      recipeDetailModal(r);
+    });
+  });
+}
+function updatePlatsList(){
+  const container = document.getElementById('plats-list-container');
+  if(!container) return;
+  container.innerHTML = renderPlatsListInner();
+  attachPlatsRowHandlers(container);
+}
+
+async function ensurePlatsThumbnails(){
+  const toLoad = state.recipes.filter(r=>r.hasPhoto && !(r.id in photoCache) && !photoCacheLoading[r.id]);
+  if(toLoad.length===0) return;
+  toLoad.forEach(r=>{ photoCacheLoading[r.id]=true; });
+  await Promise.all(toLoad.map(async r=>{
+    const photo = await safeGet('photo:'+r.id);
+    photoCache[r.id] = photo;
+    delete photoCacheLoading[r.id];
+  }));
+  if(currentTab==='plats') updatePlatsList();
+}
+
 function renderPlatsTab(){
   let html = `<div class="header"><h1>Plats</h1><span class="tag">${state.recipes.length} plat${state.recipes.length>1?'s':''}</span></div>`;
-  if(state.recipes.length===0){
-    html += `<div class="empty"><div class="em-icon">🍳</div><p>Aucune recette pour l'instant.</p><p>Ajoute ton premier plat avec le bouton +</p></div>`;
-  } else {
-    state.recipes.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{
-      html += `<div class="card recipe-card" data-open-recipe="${r.id}">
-        <div class="rc-thumb">${r.hasPhoto?'📷':'🍽️'}</div>
-        <div class="rc-main">
-          <h3>${escapeHtml(r.name)}</h3>
-          <div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${r.baseServings} pers.</div>
-        </div>
-        <div class="rc-chevron">›</div>
-      </div>`;
-    });
+  if(state.recipes.length>0){
+    html += `<input type="text" class="search-input" id="plats-search" placeholder="Rechercher un plat…" value="${escapeHtml(platsSearchQuery)}">`;
   }
+  html += `<div id="plats-list-container">${renderPlatsListInner()}</div>`;
   html += `<button class="fab" data-new-recipe>+</button>`;
   return html;
 }
 
 async function recipeDetailModal(recipeOrNull){
   const isEdit = !!recipeOrNull;
-  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:'', baseServings:4, ingredients:[{id:uid(),productId:'',qty:'',unit:'g'}], steps:'', hasPhoto:false };
+  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:'', baseServings:4, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', hasPhoto:false };
   window._editingRecipe = r;
   window._showSteps = false;
   window._recipePhoto = null;
-  window._sendServings = r.baseServings || 1;
+  window._sendServings = 2;
 
   showModal(`<div class="modal-overlay" data-overlay>
     <div class="modal">
@@ -630,9 +712,8 @@ function renderCoursesTab(){
         <span class="count">${doneCount}/${items.length}</span>
       </div>`;
     items.forEach(item=>{
-      const qtyStr = item.qty ? `${formatQty(item.qty)} ${unitLabel(item.unit)}` : '';
+      const qtyStr = item.qty ? (item.unit==='nombre' ? formatQty(item.qty) : `${formatQty(item.qty)} ${unitLabel(item.unit)}`) : '';
       html += `<div class="ticket-item ${item.checked?'done':''}" data-toggle-item="${item.id}">
-        <div class="checkbox ${item.checked?'checked':''}">${item.checked?'✓':''}</div>
         <span class="ti-name">${escapeHtml(item.productName)}</span>
         <span class="ti-qty">${qtyStr}</span>
         <button class="item-remove" data-remove-item="${item.id}" title="Retirer de la liste">✕</button>
@@ -640,6 +721,7 @@ function renderCoursesTab(){
     });
     html += `</div>`;
   });
+  html += `<button class="btn btn-ghost btn-block" data-remove-purchased style="margin-bottom:10px;">Supprimer les éléments achetés</button>`;
   html += `<button class="btn btn-ghost btn-block" data-clear-list style="margin-bottom:20px;">Vider la liste</button>`;
   return html;
 }
@@ -699,10 +781,6 @@ function modalInputHandler(e){
 function modalChangeHandler(e){
   if(e.target.id==='f-pstore' && window._editingProduct){ window._editingProduct.storeId = e.target.value; return; }
   if(e.target.id==='photo-input'){ handlePhotoSelected(e.target.files[0]); return; }
-  if(e.target.id==='import-file-input'){
-    if(e.target.files && e.target.files[0]) importBackup(e.target.files[0]);
-    return;
-  }
   if(e.target.matches('select[data-ing-field="productId"]')){
     const idx = parseInt(e.target.getAttribute('data-ing-idx'));
     if(e.target.value === '__new__'){
@@ -759,7 +837,7 @@ function modalClickHandler(e){
     return;
   }
   if(e.target.closest('[data-add-ing]')){
-    window._editingRecipe.ingredients.push({id:uid(),productId:'',qty:'',unit:'g'});
+    window._editingRecipe.ingredients.push({id:uid(),productId:'',qty:1,unit:'nombre'});
     document.getElementById('recipe-form').innerHTML = renderRecipeFormBody();
     return;
   }
@@ -767,7 +845,7 @@ function modalClickHandler(e){
   if(rmBtn){
     const idx = parseInt(rmBtn.getAttribute('data-remove-ing'));
     window._editingRecipe.ingredients.splice(idx,1);
-    if(window._editingRecipe.ingredients.length===0) window._editingRecipe.ingredients.push({id:uid(),productId:'',qty:'',unit:'g'});
+    if(window._editingRecipe.ingredients.length===0) window._editingRecipe.ingredients.push({id:uid(),productId:'',qty:1,unit:'nombre'});
     document.getElementById('recipe-form').innerHTML = renderRecipeFormBody();
     return;
   }
@@ -845,12 +923,6 @@ function modalClickHandler(e){
   }
   if(e.target.closest('[data-confirm-add-product]')){ confirmAddProductToList(overlay); return; }
   if(e.target.closest('[data-confirm-add-specific]')){ confirmAddSpecificProduct(overlay); return; }
-  if(e.target.closest('[data-do-export]')){ exportBackup(); return; }
-  if(e.target.closest('[data-do-import]')){
-    const input = document.getElementById('import-file-input');
-    if(input) input.click();
-    return;
-  }
 }
 
 function resolveOrCreateProduct(name){
@@ -880,6 +952,9 @@ async function saveRecipeFromForm(){
 
   const idx = state.recipes.findIndex(x=>x.id===r.id);
   if(idx>=0) state.recipes[idx] = r; else state.recipes.push(r);
+
+  if(r.hasPhoto) photoCache[r.id] = window._recipePhoto;
+  else delete photoCache[r.id];
 
   const tasks = [safeSet('recipes', state.recipes)];
   if(window._recipePhoto) tasks.push(safeSet('photo:'+r.id, window._recipePhoto));
@@ -937,51 +1012,6 @@ function confirmAddSpecificProduct(overlay){
   });
 }
 
-function exportBackup(){
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    products: state.products,
-    stores: state.stores,
-    recipes: state.recipes,
-    shoppingList: state.shoppingList
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const d = new Date();
-  const stamp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  a.href = url; a.download = `panier-fourneaux-sauvegarde-${stamp}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function importBackup(file){
-  const statusEl = document.getElementById('import-status');
-  try{
-    const text = await file.text();
-    const data = JSON.parse(text);
-    if(!data || (!data.products && !data.recipes && !data.stores)){
-      if(statusEl) statusEl.textContent = "Fichier invalide.";
-      return;
-    }
-    if(!confirm('Importer cette sauvegarde va remplacer tes données actuelles (produits, magasins, plats, liste de courses). Continuer ?')) return;
-    state.products = data.products || [];
-    state.stores = data.stores || [];
-    state.recipes = data.recipes || [];
-    state.shoppingList = data.shoppingList || { checklist: [] };
-    await Promise.all([
-      safeSet('products', state.products),
-      safeSet('stores', state.stores),
-      safeSet('recipes', state.recipes),
-      safeSet('shopping_list', state.shoppingList)
-    ]);
-    if(statusEl) statusEl.textContent = "Importé avec succès !";
-    setTimeout(()=>{ closeModal(); render(); }, 700);
-  }catch(e){
-    if(statusEl) statusEl.textContent = "Impossible de lire ce fichier.";
-  }
-}
-
 function showToast(msg){
   const el = document.createElement('div');
   el.className='toast'; el.textContent = msg;
@@ -993,34 +1023,23 @@ function showToast(msg){
 function attachHandlers(){
   const app = document.getElementById('app');
 
-  app.querySelectorAll('[data-add-product]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const p = findProduct(el.getAttribute('data-add-product'));
-      if(p) showModal(productAddToListModal(p));
-    });
-  });
-  app.querySelectorAll('[data-edit-product]').forEach(el=>{
-    el.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const p = findProduct(el.getAttribute('data-edit-product'));
-      if(p) showModal(productFormModal(p));
-    });
-  });
+  attachProductRowHandlers(document.getElementById('products-list-container'));
+  const productSearchInput = app.querySelector('#product-search');
+  if(productSearchInput){
+    productSearchInput.addEventListener('input', (e)=>{ productSearchQuery = e.target.value; updateProductsList(); });
+  }
   const newProdBtn = app.querySelector('[data-new-product]');
   if(newProdBtn) newProdBtn.addEventListener('click', ()=>showModal(productFormModal(null)));
   const manageStoresBtn = app.querySelector('[data-manage-stores]');
   if(manageStoresBtn) manageStoresBtn.addEventListener('click', ()=>showModal(storesManagerModal()));
-  const backupBtn = app.querySelector('[data-backup]');
-  if(backupBtn) backupBtn.addEventListener('click', ()=>showModal(backupModal()));
 
-  app.querySelectorAll('[data-open-recipe]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const r = state.recipes.find(x=>x.id===el.getAttribute('data-open-recipe'));
-      recipeDetailModal(r);
-    });
-  });
   const newRecipeBtn = app.querySelector('[data-new-recipe]');
   if(newRecipeBtn) newRecipeBtn.addEventListener('click', ()=>recipeDetailModal(null));
+  attachPlatsRowHandlers(document.getElementById('plats-list-container'));
+  const platsSearchInput = app.querySelector('#plats-search');
+  if(platsSearchInput){
+    platsSearchInput.addEventListener('input', (e)=>{ platsSearchQuery = e.target.value; updatePlatsList(); });
+  }
 
   const addToListBtn = app.querySelector('[data-add-to-list]');
   if(addToListBtn) addToListBtn.addEventListener('click', ()=>showModal(addToListModal()));
@@ -1041,6 +1060,12 @@ function attachHandlers(){
       render();
     });
   });
+  const removePurchasedBtn = app.querySelector('[data-remove-purchased]');
+  if(removePurchasedBtn) removePurchasedBtn.addEventListener('click', async ()=>{
+    state.shoppingList.checklist = state.shoppingList.checklist.filter(i=>!i.checked);
+    await safeSet('shopping_list', state.shoppingList);
+    render();
+  });
   const clearBtn = app.querySelector('[data-clear-list]');
   if(clearBtn) clearBtn.addEventListener('click', async ()=>{
     if(!confirm('Vider la liste de courses ?')) return;
@@ -1056,7 +1081,12 @@ function escapeHtml(s){
 
 /* ---------- INIT ---------- */
 document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click', ()=>{ currentTab = t.dataset.tab; render(); });
+  t.addEventListener('click', ()=>{
+    currentTab = t.dataset.tab;
+    productSearchQuery = '';
+    platsSearchQuery = '';
+    render();
+  });
 });
 
 async function init(){
