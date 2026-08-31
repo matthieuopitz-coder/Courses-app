@@ -239,20 +239,32 @@
   .photo-add-btn .ic{font-size:18px;}
   .photo-zone{
     width:100%;max-height:200px;aspect-ratio:16/10;border-radius:12px;overflow:hidden;
-    background:#E9E4D6;display:flex;align-items:center;justify-content:center;
+    background:#E9E4D6;
     margin-bottom:16px;position:relative;border:1px solid var(--line);
   }
-  .photo-zone img{width:100%;height:100%;object-fit:cover;}
-  .photo-actions{position:absolute;bottom:8px;right:8px;display:flex;gap:6px;}
+  .photo-carousel-track{display:flex;width:100%;height:100%;transition:transform .25s ease;}
+  .photo-carousel-img{width:100%;height:100%;object-fit:cover;flex-shrink:0;}
+  .carousel-nav{
+    position:absolute;top:50%;transform:translateY(-50%);
+    width:30px;height:30px;border-radius:50%;border:none;
+    background:rgba(31,51,42,.55);color:#fff;font-size:19px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;line-height:1;padding:0;
+  }
+  .carousel-nav.prev{left:8px;}
+  .carousel-nav.next{right:8px;}
+  .carousel-dots{position:absolute;bottom:9px;left:0;right:0;display:flex;justify-content:center;gap:5px;}
+  .carousel-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);cursor:pointer;}
+  .carousel-dot.active{background:#fff;}
+  .photo-actions{position:absolute;top:8px;right:8px;display:flex;gap:6px;}
   .photo-actions button{
     background:rgba(31,51,42,.85);color:#fff;border:none;border-radius:8px;
     font-size:13.5px;font-weight:600;padding:7px 10px;cursor:pointer;
   }
 
-  .ing-subtitle{font-size:17.5px;font-weight:600;color:var(--ink);margin-bottom:10px;}
+  .ing-subtitle{font-size:17.5px;font-weight:600;color:var(--ink);margin-bottom:10px;white-space:nowrap;display:flex;align-items:center;gap:5px;}
   .inline-num{
     width:52px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;
-    font-size:17px;font-weight:600;text-align:center;margin:0 3px;
+    font-size:17px;font-weight:600;text-align:center;margin:0 3px;flex-shrink:0;
     background:#FCFBF8;color:var(--primary-dark);font-family:'Inter',sans-serif;
   }
   .servings-box{
@@ -267,6 +279,12 @@
     display:flex;align-items:center;justify-content:center;gap:8px;
   }
   .send-btn.sent{background:var(--accent);}
+  .btn-spinner{
+    display:inline-block;width:14px;height:14px;border-radius:50%;
+    border:2px solid currentColor;border-right-color:transparent;border-top-color:transparent;
+    animation:btnspin .6s linear infinite;margin-right:7px;vertical-align:-2px;
+  }
+  @keyframes btnspin{to{transform:rotate(360deg);}}
   .toast{
     position:fixed;bottom:96px;left:50%;transform:translateX(-50%);
     background:var(--primary-dark);color:#fff;padding:10px 18px;border-radius:24px;
@@ -285,7 +303,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.12";
+const APP_VERSION = "V1.13";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -640,6 +658,17 @@ function startStoreRename(storeId){
 let platsSearchQuery = '';
 let photoCache = {};
 let photoCacheLoading = {};
+const MAX_PHOTOS = 5;
+
+function recipePhotoCount(r){
+  if(typeof r.photoCount === 'number') return r.photoCount;
+  return r.hasPhoto ? 1 : 0; // backward-compat with recipes saved before multi-photo support
+}
+function normalizePhotos(raw){
+  if(Array.isArray(raw)) return raw.filter(Boolean);
+  if(typeof raw === 'string' && raw) return [raw]; // backward-compat: old single-photo string
+  return [];
+}
 
 function renderPlatsListInner(){
   if(state.recipes.length===0){
@@ -652,9 +681,10 @@ function renderPlatsListInner(){
   }
   let html = '';
   filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{
-    const thumbContent = (r.hasPhoto && photoCache[r.id])
+    const pCount = recipePhotoCount(r);
+    const thumbContent = (pCount>0 && photoCache[r.id])
       ? `<img src="${photoCache[r.id]}" style="width:100%;height:100%;object-fit:cover;">`
-      : (r.hasPhoto ? '📷' : '🍽️');
+      : (pCount>0 ? '📷' : '🍽️');
     html += `<div class="card recipe-card" data-open-recipe="${r.id}">
       <div class="rc-thumb">${thumbContent}</div>
       <div class="rc-main">
@@ -684,12 +714,13 @@ function updatePlatsList(){
 }
 
 async function ensurePlatsThumbnails(){
-  const toLoad = state.recipes.filter(r=>r.hasPhoto && !(r.id in photoCache) && !photoCacheLoading[r.id]);
+  const toLoad = state.recipes.filter(r=>recipePhotoCount(r)>0 && !(r.id in photoCache) && !photoCacheLoading[r.id]);
   if(toLoad.length===0) return;
   toLoad.forEach(r=>{ photoCacheLoading[r.id]=true; });
   await Promise.all(toLoad.map(async r=>{
-    const photo = await safeGet('photo:'+r.id);
-    photoCache[r.id] = photo;
+    const raw = await safeGet('photo:'+r.id);
+    const photos = normalizePhotos(raw);
+    photoCache[r.id] = photos[0] || null;
     delete photoCacheLoading[r.id];
   }));
   if(currentTab==='plats') updatePlatsList();
@@ -707,10 +738,11 @@ function renderPlatsTab(){
 
 async function recipeDetailModal(recipeOrNull){
   const isEdit = !!recipeOrNull;
-  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:'', baseServings:4, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', hasPhoto:false };
+  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:'', baseServings:4, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', photoCount:0 };
   window._editingRecipe = r;
-  window._showSteps = false;
-  window._recipePhoto = null;
+  window._showSteps = !!(r.steps && r.steps.trim());
+  window._recipePhotos = [];
+  window._photoIndex = 0;
   window._sendServings = 2;
 
   showModal(`<div class="modal-overlay" data-overlay>
@@ -720,26 +752,39 @@ async function recipeDetailModal(recipeOrNull){
     </div>
   </div>`);
 
-  if(isEdit && r.hasPhoto){
-    const photo = await safeGet('photo:'+r.id);
-    window._recipePhoto = photo;
+  if(isEdit && recipePhotoCount(r) > 0){
+    const raw = await safeGet('photo:'+r.id);
+    window._recipePhotos = normalizePhotos(raw);
+    window._photoIndex = 0;
     const zone = document.getElementById('photo-zone-inner');
     if(zone) zone.outerHTML = photoZoneHtml();
   }
 }
 
 function photoZoneHtml(){
-  const photo = window._recipePhoto;
-  if(photo){
-    return `<div class="photo-zone" id="photo-zone-inner">
-      <img src="${photo}">
-      <div class="photo-actions">
-        <button type="button" data-take-photo>Changer</button>
-        <button type="button" data-remove-photo>Retirer</button>
-      </div>
-    </div>`;
+  const photos = window._recipePhotos || [];
+  if(photos.length===0){
+    return `<button type="button" class="photo-add-btn" id="photo-zone-inner" data-take-photo><span class="ic">📷</span>Ajouter une photo</button>`;
   }
-  return `<button type="button" class="photo-add-btn" id="photo-zone-inner" data-take-photo><span class="ic">📷</span>Ajouter une photo</button>`;
+  let idx = window._photoIndex || 0;
+  if(idx > photos.length-1) idx = photos.length-1;
+  if(idx < 0) idx = 0;
+  window._photoIndex = idx;
+  const canAddMore = photos.length < MAX_PHOTOS;
+  return `<div class="photo-zone" id="photo-zone-inner">
+    <div class="photo-carousel-track" style="transform:translateX(-${idx*100}%);">
+      ${photos.map(p=>`<img class="photo-carousel-img" src="${p}">`).join('')}
+    </div>
+    ${photos.length>1 ? `
+      <button type="button" class="carousel-nav prev" data-photo-nav="-1">‹</button>
+      <button type="button" class="carousel-nav next" data-photo-nav="1">›</button>
+      <div class="carousel-dots">${photos.map((_,i)=>`<span class="carousel-dot ${i===idx?'active':''}" data-photo-dot="${i}"></span>`).join('')}</div>
+    ` : ''}
+    <div class="photo-actions">
+      ${canAddMore ? `<button type="button" data-take-photo>+ Ajouter</button>` : ''}
+      <button type="button" data-remove-photo>Retirer</button>
+    </div>
+  </div>`;
 }
 
 function renderRecipeFormBody(){
@@ -779,8 +824,8 @@ function renderRecipeFormBody(){
 
     <hr class="divider">
     ${photoZoneHtml()}
-    <button class="toggle-steps" data-toggle-steps type="button">${(r.steps || window._showSteps) ? '▾' : '▸'} Recette / notes</button>
-    <div class="field" id="steps-field" style="${(r.steps || window._showSteps) ? '' : 'display:none;'} margin-top:8px;">
+    <button class="toggle-steps" data-toggle-steps type="button">${window._showSteps ? '▾' : '▸'} Recette / notes</button>
+    <div class="field" id="steps-field" style="${window._showSteps ? '' : 'display:none;'} margin-top:8px;">
       <textarea id="f-steps" placeholder="1. Faire revenir l'oignon...&#10;2. ...">${escapeHtml(r.steps||'')}</textarea>
     </div>
 
@@ -872,6 +917,21 @@ function showModal(html){
   overlay.addEventListener('click', modalClickHandler);
   overlay.addEventListener('input', modalInputHandler);
   overlay.addEventListener('change', modalChangeHandler);
+
+  let touchStartX = null;
+  overlay.addEventListener('touchstart', (e)=>{
+    if(e.target.closest('.photo-zone')) touchStartX = e.touches[0].clientX;
+  }, {passive:true});
+  overlay.addEventListener('touchend', (e)=>{
+    if(touchStartX===null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    touchStartX = null;
+    const total = (window._recipePhotos||[]).length;
+    if(total<2 || Math.abs(dx)<40) return;
+    window._photoIndex = ((window._photoIndex||0) + (dx<0?1:-1) + total) % total;
+    const zone = document.getElementById('photo-zone-inner');
+    if(zone) zone.outerHTML = photoZoneHtml();
+  }, {passive:true});
 }
 function closeModal(){ document.querySelectorAll('.modal-overlay').forEach(o=>o.remove()); }
 
@@ -916,9 +976,12 @@ function modalChangeHandler(e){
 
 async function handlePhotoSelected(file){
   if(!file) return;
+  if(!window._recipePhotos) window._recipePhotos = [];
+  if(window._recipePhotos.length >= MAX_PHOTOS){ alert(`Maximum ${MAX_PHOTOS} photos par plat.`); return; }
   try{
     const dataUrl = await resizeImage(file, 1000, 0.75);
-    window._recipePhoto = dataUrl;
+    window._recipePhotos.push(dataUrl);
+    window._photoIndex = window._recipePhotos.length - 1;
     const zone = document.getElementById('photo-zone-inner');
     if(zone) zone.outerHTML = photoZoneHtml();
   }catch(e){ alert("Impossible de charger cette photo."); }
@@ -1011,24 +1074,50 @@ function modalClickHandler(e){
     return;
   }
   if(e.target.closest('[data-remove-photo]')){
-    window._recipePhoto = null;
+    const idx = window._photoIndex || 0;
+    if(window._recipePhotos && window._recipePhotos.length){
+      window._recipePhotos.splice(idx,1);
+      window._photoIndex = Math.max(0, idx-1);
+    }
     const zone = document.getElementById('photo-zone-inner');
     if(zone) zone.outerHTML = photoZoneHtml();
     return;
   }
-  if(e.target.closest('[data-send-cart]')){ sendRecipeToCart(); return; }
-  if(e.target.closest('[data-save-recipe]')){ saveRecipeFromForm().then(()=>{ overlay.remove(); render(); }); return; }
+  const photoNav = e.target.closest('[data-photo-nav]');
+  if(photoNav){
+    const dir = parseInt(photoNav.getAttribute('data-photo-nav'));
+    const total = (window._recipePhotos||[]).length;
+    window._photoIndex = ((window._photoIndex||0) + dir + total) % total;
+    const zone = document.getElementById('photo-zone-inner');
+    if(zone) zone.outerHTML = photoZoneHtml();
+    return;
+  }
+  const photoDot = e.target.closest('[data-photo-dot]');
+  if(photoDot){
+    window._photoIndex = parseInt(photoDot.getAttribute('data-photo-dot'));
+    const zone = document.getElementById('photo-zone-inner');
+    if(zone) zone.outerHTML = photoZoneHtml();
+    return;
+  }
+  const sendBtnEl = e.target.closest('[data-send-cart]');
+  if(sendBtnEl){ sendRecipeToCart(sendBtnEl); return; }
+  const saveRecipeBtn = e.target.closest('[data-save-recipe]');
+  if(saveRecipeBtn){
+    withLoading(saveRecipeBtn, ()=>saveRecipeFromForm()).then(()=>{ overlay.remove(); render(); });
+    return;
+  }
   const delR = e.target.closest('[data-delete-recipe]');
   if(delR){
     const id = delR.getAttribute('data-delete-recipe');
     if(confirm('Supprimer ce plat ?')){
       state.recipes = state.recipes.filter(r=>r.id!==id);
-      safeSet('recipes', state.recipes).then(()=>{ overlay.remove(); render(); });
+      withLoading(delR, ()=>safeSet('recipes', state.recipes)).then(()=>{ overlay.remove(); render(); });
     }
     return;
   }
-  if(e.target.closest('[data-save-product]')){
-    saveProductFromForm().then((savedProduct)=>{
+  const saveProdBtn = e.target.closest('[data-save-product]');
+  if(saveProdBtn){
+    withLoading(saveProdBtn, ()=>saveProductFromForm()).then((savedProduct)=>{
       if(!savedProduct) return;
       overlay.remove();
       if(window._pendingPickerContext){
@@ -1045,16 +1134,17 @@ function modalClickHandler(e){
     const id = delP.getAttribute('data-delete-product');
     if(confirm('Supprimer ce produit ?')){
       state.products = state.products.filter(p=>p.id!==id);
-      safeSet('products', state.products).then(()=>{ overlay.remove(); render(); });
+      withLoading(delP, ()=>safeSet('products', state.products)).then(()=>{ overlay.remove(); render(); });
     }
     return;
   }
-  if(e.target.closest('[data-add-store-inline]')){
+  const addStoreBtn = e.target.closest('[data-add-store-inline]');
+  if(addStoreBtn){
     const input = document.getElementById('new-store-inline');
     const name = input.value.trim();
     if(!name) return;
     state.stores.push({id:uid(), name});
-    safeSet('stores', state.stores).then(()=>{
+    withLoading(addStoreBtn, ()=>safeSet('stores', state.stores)).then(()=>{
       input.value='';
       document.getElementById('stores-list').innerHTML = renderStoreChips();
     });
@@ -1067,14 +1157,16 @@ function modalClickHandler(e){
     const id = delS.getAttribute('data-delete-store');
     state.stores = state.stores.filter(s=>s.id!==id);
     state.products.forEach(p=>{ if(p.storeId===id) p.storeId=''; });
-    Promise.all([safeSet('stores', state.stores), safeSet('products', state.products)]).then(()=>{
+    withLoading(delS, ()=>Promise.all([safeSet('stores', state.stores), safeSet('products', state.products)])).then(()=>{
       document.getElementById('stores-list').innerHTML = renderStoreChips();
       refreshProductStoreSelect();
     });
     return;
   }
-  if(e.target.closest('[data-confirm-add-product]')){ confirmAddProductToList(overlay); return; }
-  if(e.target.closest('[data-confirm-add-specific]')){ confirmAddSpecificProduct(overlay); return; }
+  const confirmAddBtn = e.target.closest('[data-confirm-add-product]');
+  if(confirmAddBtn){ confirmAddProductToList(overlay, confirmAddBtn); return; }
+  const confirmAddSpecificBtn = e.target.closest('[data-confirm-add-specific]');
+  if(confirmAddSpecificBtn){ confirmAddSpecificProduct(overlay, confirmAddSpecificBtn); return; }
 }
 
 function resolveOrCreateProduct(name){
@@ -1100,21 +1192,22 @@ async function saveRecipeFromForm(){
   if(!r.name || !r.name.trim()){ alert('Donne un nom au plat.'); return; }
   r.ingredients = r.ingredients.filter(i=>i.productId && i.productId.trim());
   r.ingredients.forEach(i=>{ i.qty = parseFloat(i.qty)||0; });
-  r.hasPhoto = !!window._recipePhoto;
+  const photos = window._recipePhotos || [];
+  r.photoCount = photos.length;
+  delete r.hasPhoto;
 
   const idx = state.recipes.findIndex(x=>x.id===r.id);
   if(idx>=0) state.recipes[idx] = r; else state.recipes.push(r);
 
-  if(r.hasPhoto) photoCache[r.id] = window._recipePhoto;
-  else delete photoCache[r.id];
+  photoCache[r.id] = photos[0] || null;
+  if(photos.length===0) delete photoCache[r.id];
 
-  const tasks = [safeSet('recipes', state.recipes)];
-  if(window._recipePhoto) tasks.push(safeSet('photo:'+r.id, window._recipePhoto));
+  const tasks = [safeSet('recipes', state.recipes), safeSet('photo:'+r.id, photos)];
   await Promise.all(tasks);
   window._editingRecipe = null;
 }
 
-async function sendRecipeToCart(){
+async function sendRecipeToCart(btnParam){
   const r = window._editingRecipe;
   const base = parseFloat(document.getElementById('f-servings').value) || r.baseServings || 1;
   const target = window._sendServings || base;
@@ -1131,13 +1224,13 @@ async function sendRecipeToCart(){
     else state.shoppingList.checklist.push({ id: uid(), productId: ing.productId, qty, unit, checked:false });
   });
 
-  await safeSet('shopping_list', state.shoppingList);
-  const btn = document.getElementById('send-to-cart-btn');
+  const btn = btnParam || document.getElementById('send-to-cart-btn');
+  await withLoading(btn, ()=>safeSet('shopping_list', state.shoppingList));
   if(btn){ btn.textContent = '✓ Ajouté à la liste'; btn.classList.add('sent'); setTimeout(()=>{ if(btn){ btn.textContent='🛒 Envoyer dans la liste de courses'; btn.classList.remove('sent'); } },1800); }
   showToast('Ajouté à la liste de courses');
 }
 
-function confirmAddProductToList(overlay){
+function confirmAddProductToList(overlay, btnParam){
   const nameInput = document.getElementById('add-prod-name');
   const name = nameInput.value.trim();
   if(!name){ alert('Indique un nom de produit.'); return; }
@@ -1148,21 +1241,42 @@ function confirmAddProductToList(overlay){
   const existing = state.shoppingList.checklist.find(it=>it.productId===p.id && it.unit===unit);
   if(existing) existing.qty += qty;
   else state.shoppingList.checklist.push({ id: uid(), productId:p.id, qty, unit, checked:false });
-  Promise.all([safeSet('products', state.products), safeSet('shopping_list', state.shoppingList)]).then(()=>{
+  withLoading(btnParam, ()=>Promise.all([safeSet('products', state.products), safeSet('shopping_list', state.shoppingList)])).then(()=>{
     overlay.remove(); render();
   });
 }
 
-function confirmAddSpecificProduct(overlay){
+function confirmAddSpecificProduct(overlay, btnParam){
   const id = window._addingProductId;
   const qty = parseFloat(document.getElementById('qty-for-product').value)||0;
   const unit = document.getElementById('unit-for-product').value;
   const existing = state.shoppingList.checklist.find(it=>it.productId===id && it.unit===unit);
   if(existing) existing.qty += qty;
   else state.shoppingList.checklist.push({ id: uid(), productId:id, qty, unit, checked:false });
-  safeSet('shopping_list', state.shoppingList).then(()=>{
+  withLoading(btnParam, ()=>safeSet('shopping_list', state.shoppingList)).then(()=>{
     overlay.remove(); showToast('Ajouté à la liste de courses'); render();
   });
+}
+
+// Shows a spinner + disables a button while an async action runs, so taps
+// always get visible feedback even when the network call takes a moment.
+function withLoading(btn, fn){
+  if(btn && !btn.disabled){
+    btn.dataset.prevHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.style.opacity = '.7';
+    btn.innerHTML = `<span class="btn-spinner"></span>${btn.dataset.prevHtml}`;
+  }
+  const restore = () => {
+    if(btn && document.body.contains(btn) && btn.dataset.prevHtml !== undefined){
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.innerHTML = btn.dataset.prevHtml;
+      delete btn.dataset.prevHtml;
+    }
+  };
+  const result = fn();
+  return Promise.resolve(result).finally(restore);
 }
 
 function showToast(msg){
@@ -1214,14 +1328,14 @@ function attachHandlers(){
   const removePurchasedBtn = app.querySelector('[data-remove-purchased]');
   if(removePurchasedBtn) removePurchasedBtn.addEventListener('click', async ()=>{
     state.shoppingList.checklist = state.shoppingList.checklist.filter(i=>!i.checked);
-    await safeSet('shopping_list', state.shoppingList);
+    await withLoading(removePurchasedBtn, ()=>safeSet('shopping_list', state.shoppingList));
     render();
   });
   const clearBtn = app.querySelector('[data-clear-list]');
   if(clearBtn) clearBtn.addEventListener('click', async ()=>{
     if(!confirm('Vider la liste de courses ?')) return;
     state.shoppingList = { checklist: [] };
-    await safeSet('shopping_list', state.shoppingList);
+    await withLoading(clearBtn, ()=>safeSet('shopping_list', state.shoppingList));
     render();
   });
 }
