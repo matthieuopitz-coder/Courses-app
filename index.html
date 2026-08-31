@@ -153,6 +153,19 @@
   .row2 > *{flex:1;}
 
   .ing-row{display:grid;grid-template-columns:1.7fr .8fr .8fr auto;gap:6px;margin-bottom:8px;align-items:center;}
+  .prod-picker{position:relative;}
+  .prod-picker-list{
+    display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:40;
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    max-height:230px;overflow-y:auto;box-shadow:0 10px 24px rgba(0,0,0,.15);
+  }
+  .prod-pick-option{padding:11px 13px;font-size:14.5px;cursor:pointer;border-bottom:1px solid var(--line);}
+  .prod-pick-option:last-child{border-bottom:none;}
+  .prod-pick-option:active{background:#FAF8F3;}
+  .prod-pick-new{
+    padding:11px 13px;font-size:14.5px;font-weight:600;color:var(--primary);
+    cursor:pointer;border-top:1px dashed var(--line);background:#FAF8F3;
+  }
   .ing-row input,.ing-row select{
     padding:9px 8px;border:1px solid var(--line);border-radius:8px;
     font-size:15px;background:#FCFBF8;color:var(--ink);width:100%;
@@ -178,6 +191,17 @@
     font-size:15.5px;font-weight:500;
   }
   .store-chip button{background:none;border:none;color:var(--accent);font-size:17px;cursor:pointer;padding:0;}
+  .store-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 4px;border-bottom:1px solid var(--line);
+  }
+  .store-row:last-child{border-bottom:none;}
+  .store-row-name{font-size:15.5px;font-weight:500;}
+  .store-row-actions{display:flex;align-items:center;gap:4px;}
+  .store-rename-input{
+    flex:1;padding:7px 9px;border:1px solid var(--primary);border-radius:8px;
+    font-size:15.5px;font-family:'Inter',sans-serif;background:#FCFBF8;color:var(--ink);margin-right:8px;
+  }
 
   .sel-row{display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-bottom:1px solid var(--line);gap:10px;}
   .sel-row:last-child{border-bottom:none;}
@@ -261,9 +285,9 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.11";
+const APP_VERSION = "V1.12";
 const UNITS = [
-  {v:'nombre',l:'nombre'},{v:'g',l:'g'},{v:'ml',l:'ml'}
+  {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
 const unitLabel = v => (UNITS.find(u=>u.v===v)||{l:v}).l;
 const uid = () => Math.random().toString(36).slice(2,10);
@@ -482,9 +506,53 @@ function renderStoreOptions(selectedId){
     `<option value="__manage__">⚙ Gérer les magasins…</option>`;
 }
 
-function productFormModal(product){
+/* ---------- PRODUCT PICKER (searchable, reused for ingredients & add-to-list) ---------- */
+function filterProductsByQuery(query){
+  const q = query.trim().toLowerCase();
+  const sorted = state.products.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  if(!q) return sorted;
+  return sorted.filter(p=>p.name.toLowerCase().includes(q));
+}
+function productPickerListHtml(query, ctx){
+  const matches = filterProductsByQuery(query).slice(0, 40);
+  let html = matches.map(p=>`<div class="prod-pick-option" data-picker-context="${ctx}" data-product-id="${p.id}">${escapeHtml(p.name)}</div>`).join('');
+  if(matches.length===0) html += `<div class="subtle" style="padding:10px 12px;">Aucun produit trouvé.</div>`;
+  html += `<div class="prod-pick-new" data-picker-context="${ctx}">+ Ajouter un nouveau produit à la liste de produits</div>`;
+  return html;
+}
+function showProdPickerList(ctx, query){
+  const listEl = document.querySelector(`.prod-picker-list[data-picker-context="${ctx}"]`);
+  if(!listEl) return;
+  listEl.innerHTML = productPickerListHtml(query, ctx);
+  listEl.style.display = 'block';
+}
+function hideAllProdPickerLists(){
+  document.querySelectorAll('.prod-picker-list').forEach(el=>{ el.style.display='none'; });
+}
+function ingredientProductPickerHtml(ing, idx){
+  const selectedName = ing.productId ? ((findProduct(ing.productId)||{}).name || '') : '';
+  const ctx = 'ing:'+idx;
+  return `<div class="prod-picker">
+    <input type="text" class="prod-picker-input" data-picker-context="${ctx}" value="${escapeHtml(selectedName)}" placeholder="Choisir un produit…" autocomplete="off">
+    <div class="prod-picker-list" data-picker-context="${ctx}"></div>
+  </div>`;
+}
+function applyProductPickerSelection(ctx, product){
+  if(!product) return;
+  if(ctx.indexOf('ing:')===0){
+    const idx = parseInt(ctx.split(':')[1]);
+    if(window._editingRecipe) window._editingRecipe.ingredients[idx].productId = product.id;
+    const input = document.querySelector(`.prod-picker-input[data-picker-context="${ctx}"]`);
+    if(input) input.value = product.name;
+  } else if(ctx === 'addlist'){
+    const input = document.getElementById('add-prod-name');
+    if(input){ input.value = product.name; input.dataset.selectedId = product.id; }
+  }
+}
+
+function productFormModal(product, prefillName){
   const isEdit = !!product;
-  const p = product || { id: uid(), name:'', storeId:'' };
+  const p = product || { id: uid(), name: prefillName || '', storeId:'' };
   window._editingProduct = {...p};
   return `<div class="modal-overlay" data-overlay>
     <div class="modal">
@@ -536,7 +604,36 @@ function storesManagerModal(){
 }
 function renderStoreChips(){
   if(state.stores.length===0) return `<p class="subtle">Aucun magasin pour l'instant.</p>`;
-  return state.stores.map(s=>`<span class="store-chip">${escapeHtml(s.name)} <button data-delete-store="${s.id}">✕</button></span>`).join('');
+  return state.stores.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`
+    <div class="store-row">
+      <span class="store-row-name" data-store-id="${s.id}">${escapeHtml(s.name)}</span>
+      <div class="store-row-actions">
+        <button class="pr-edit" data-edit-store="${s.id}" title="Renommer">✎</button>
+        <button class="pr-edit" data-delete-store="${s.id}" title="Supprimer">✕</button>
+      </div>
+    </div>`).join('');
+}
+function startStoreRename(storeId){
+  const nameSpan = document.querySelector(`.store-row-name[data-store-id="${storeId}"]`);
+  const store = state.stores.find(s=>s.id===storeId);
+  if(!nameSpan || !store) return;
+  nameSpan.outerHTML = `<input type="text" class="store-rename-input" data-store-id="${storeId}" value="${escapeHtml(store.name)}">`;
+  const input = document.querySelector(`.store-rename-input[data-store-id="${storeId}"]`);
+  if(!input) return;
+  input.focus();
+  input.select();
+  const commit = async () => {
+    const newName = input.value.trim();
+    if(newName && newName !== store.name){
+      store.name = newName;
+      await safeSet('stores', state.stores);
+    }
+    const list = document.getElementById('stores-list');
+    if(list) list.innerHTML = renderStoreChips();
+    refreshProductStoreSelect();
+  };
+  input.addEventListener('blur', commit, {once:true});
+  input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') input.blur(); });
 }
 
 /* ---------- PLATS TAB ---------- */
@@ -647,14 +744,9 @@ function photoZoneHtml(){
 
 function renderRecipeFormBody(){
   const r = window._editingRecipe;
-  const sortedProducts = state.products.slice().sort((a,b)=>a.name.localeCompare(b.name));
   let ingHtml = r.ingredients.map((ing,idx)=>{
     return `<div class="ing-row">
-      <select data-ing-field="productId" data-ing-idx="${idx}">
-        <option value="">Choisir un produit…</option>
-        ${sortedProducts.map(p=>`<option value="${p.id}" ${ing.productId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-        <option value="__new__">+ Ajouter un produit inexistant</option>
-      </select>
+      ${ingredientProductPickerHtml(ing, idx)}
       <input type="number" min="0" step="any" placeholder="Qté" value="${ing.qty}" data-ing-field="qty" data-ing-idx="${idx}">
       <select data-ing-field="unit" data-ing-idx="${idx}">
         ${UNITS.map(u=>`<option value="${u.v}" ${ing.unit===u.v?'selected':''}>${u.l}</option>`).join('')}
@@ -745,14 +837,15 @@ function renderCoursesTab(){
 }
 
 function addToListModal(){
-  const names = state.products.map(p=>p.name);
   return `<div class="modal-overlay" data-overlay>
     <div class="modal">
       <div class="modal-head"><h2>Ajouter un produit</h2><button class="modal-close" data-close-modal>✕</button></div>
-      <datalist id="add-prod-names">${names.map(n=>`<option value="${escapeHtml(n)}">`).join('')}</datalist>
       <div class="field">
         <label>Produit</label>
-        <input type="text" list="add-prod-names" id="add-prod-name" placeholder="Nom du produit">
+        <div class="prod-picker">
+          <input type="text" class="prod-picker-input" id="add-prod-name" data-picker-context="addlist" placeholder="Rechercher un produit…" autocomplete="off">
+          <div class="prod-picker-list" data-picker-context="addlist"></div>
+        </div>
       </div>
       <div class="row2">
         <div class="field"><label>Quantité (optionnel)</label><input type="number" min="0" step="any" id="add-prod-qty"></div>
@@ -783,6 +876,17 @@ function showModal(html){
 function closeModal(){ document.querySelectorAll('.modal-overlay').forEach(o=>o.remove()); }
 
 function modalInputHandler(e){
+  if(e.target.matches('.prod-picker-input')){
+    const ctx = e.target.getAttribute('data-picker-context');
+    if(ctx.indexOf('ing:')===0){
+      const idx = parseInt(ctx.split(':')[1]);
+      if(window._editingRecipe) window._editingRecipe.ingredients[idx].productId = '';
+    } else if(ctx==='addlist'){
+      delete e.target.dataset.selectedId;
+    }
+    showProdPickerList(ctx, e.target.value);
+    return;
+  }
   const r = window._editingRecipe;
   if(e.target.id==='f-pname' && window._editingProduct){ window._editingProduct.name = e.target.value; return; }
   if(!r) return;
@@ -807,17 +911,6 @@ function modalChangeHandler(e){
     return;
   }
   if(e.target.id==='photo-input'){ handlePhotoSelected(e.target.files[0]); return; }
-  if(e.target.matches('select[data-ing-field="productId"]')){
-    const idx = parseInt(e.target.getAttribute('data-ing-idx'));
-    if(e.target.value === '__new__'){
-      window._pendingIngredientIdx = idx;
-      e.target.value = window._editingRecipe.ingredients[idx].productId || '';
-      showModal(productFormModal(null));
-    } else {
-      window._editingRecipe.ingredients[idx].productId = e.target.value;
-    }
-    return;
-  }
   modalInputHandler(e);
 }
 
@@ -854,6 +947,35 @@ function resizeImage(file, maxDim, quality){
 
 function modalClickHandler(e){
   const overlay = e.currentTarget;
+
+  const pickerInput = e.target.closest('.prod-picker-input');
+  if(pickerInput){
+    hideAllProdPickerLists();
+    showProdPickerList(pickerInput.getAttribute('data-picker-context'), pickerInput.value);
+    return;
+  }
+  const pickOpt = e.target.closest('.prod-pick-option');
+  if(pickOpt){
+    const ctx = pickOpt.getAttribute('data-picker-context');
+    const product = findProduct(pickOpt.getAttribute('data-product-id'));
+    applyProductPickerSelection(ctx, product);
+    hideAllProdPickerLists();
+    return;
+  }
+  const pickNew = e.target.closest('.prod-pick-new');
+  if(pickNew){
+    const ctx = pickNew.getAttribute('data-picker-context');
+    const inputEl = document.querySelector(`.prod-picker-input[data-picker-context="${ctx}"]`);
+    const typed = inputEl ? inputEl.value.trim() : '';
+    window._pendingPickerContext = ctx;
+    hideAllProdPickerLists();
+    showModal(productFormModal(null, typed));
+    return;
+  }
+  if(!e.target.closest('.prod-picker')){
+    hideAllProdPickerLists();
+  }
+
   if(e.target.hasAttribute('data-overlay') || e.target.closest('[data-close-modal]')){
     const isRecipeModal = !!overlay.querySelector('#recipe-form');
     const isProductModal = !!overlay.querySelector('#f-pname');
@@ -862,7 +984,7 @@ function modalClickHandler(e){
     if(isRecipeModal) window._editingRecipe=null;
     if(isProductModal) window._editingProduct=null;
     if(isStoresManager) refreshProductStoreSelect();
-    window._pendingIngredientIdx=null;
+    window._pendingPickerContext=null;
     return;
   }
   if(e.target.closest('[data-add-ing]')){
@@ -909,11 +1031,9 @@ function modalClickHandler(e){
     saveProductFromForm().then((savedProduct)=>{
       if(!savedProduct) return;
       overlay.remove();
-      if(window._pendingIngredientIdx !== null && window._pendingIngredientIdx !== undefined && window._editingRecipe){
-        window._editingRecipe.ingredients[window._pendingIngredientIdx].productId = savedProduct.id;
-        window._pendingIngredientIdx = null;
-        const rf = document.getElementById('recipe-form');
-        if(rf) rf.innerHTML = renderRecipeFormBody();
+      if(window._pendingPickerContext){
+        applyProductPickerSelection(window._pendingPickerContext, savedProduct);
+        window._pendingPickerContext = null;
       } else {
         render();
       }
@@ -940,6 +1060,8 @@ function modalClickHandler(e){
     });
     return;
   }
+  const editS = e.target.closest('[data-edit-store]');
+  if(editS){ startStoreRename(editS.getAttribute('data-edit-store')); return; }
   const delS = e.target.closest('[data-delete-store]');
   if(delS){
     const id = delS.getAttribute('data-delete-store');
@@ -947,6 +1069,7 @@ function modalClickHandler(e){
     state.products.forEach(p=>{ if(p.storeId===id) p.storeId=''; });
     Promise.all([safeSet('stores', state.stores), safeSet('products', state.products)]).then(()=>{
       document.getElementById('stores-list').innerHTML = renderStoreChips();
+      refreshProductStoreSelect();
     });
     return;
   }
@@ -1015,11 +1138,12 @@ async function sendRecipeToCart(){
 }
 
 function confirmAddProductToList(overlay){
-  const name = document.getElementById('add-prod-name').value.trim();
+  const nameInput = document.getElementById('add-prod-name');
+  const name = nameInput.value.trim();
   if(!name){ alert('Indique un nom de produit.'); return; }
   const qtyVal = document.getElementById('add-prod-qty').value;
   const unit = document.getElementById('add-prod-unit').value;
-  const p = resolveOrCreateProduct(name);
+  const p = nameInput.dataset.selectedId ? (findProduct(nameInput.dataset.selectedId) || resolveOrCreateProduct(name)) : resolveOrCreateProduct(name);
   const qty = qtyVal ? parseFloat(qtyVal) : 0;
   const existing = state.shoppingList.checklist.find(it=>it.productId===p.id && it.unit===unit);
   if(existing) existing.qty += qty;
