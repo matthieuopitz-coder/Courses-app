@@ -272,7 +272,7 @@
   .inline-num::-webkit-outer-spin-button,
   .inline-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   .servings-box{
-    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    background:#E3EFE6;border:1px solid #C3DBC9;border-radius:12px;
     padding:14px;margin:6px 0 16px;
   }
   .servings-row{display:flex;align-items:center;gap:10px;}
@@ -307,7 +307,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.15";
+const APP_VERSION = "V1.16";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -744,7 +744,7 @@ async function recipeDetailModal(recipeOrNull){
   const isEdit = !!recipeOrNull;
   const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:'', baseServings:4, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', photoCount:0 };
   window._editingRecipe = r;
-  window._showSteps = !!(r.steps && r.steps.trim());
+  window._showSteps = false;
   window._recipePhotos = [];
   window._photoIndex = 0;
   window._sendServings = 2;
@@ -843,10 +843,10 @@ function renderRecipeFormBody(){
 /* ---------- COURSES TAB ---------- */
 function renderCoursesTab(){
   let html = `<div class="header"><h1>Courses</h1></div>`;
-  html += `<button class="btn btn-soft-primary btn-block" data-add-to-list style="margin-bottom:18px;">+ Ajouter un produit à la liste</button>`;
 
   if(!state.shoppingList.checklist || state.shoppingList.checklist.length===0){
     html += `<div class="empty"><div class="em-icon">🛒</div><p>Ta liste de courses est vide.</p><p>Ajoute des produits ici, ou envoie un plat depuis l'onglet Plats.</p></div>`;
+    html += `<button class="fab" data-add-to-list>+</button>`;
     return html;
   }
 
@@ -882,6 +882,7 @@ function renderCoursesTab(){
   });
   html += `<button class="btn btn-soft-danger btn-block" data-remove-purchased style="margin-bottom:10px;">Supprimer les éléments achetés</button>`;
   html += `<button class="btn btn-soft-danger btn-block" data-clear-list style="margin-bottom:20px;">Vider la liste</button>`;
+  html += `<button class="fab" data-add-to-list>+</button>`;
   return html;
 }
 
@@ -1280,7 +1281,7 @@ function withLoading(btn, fn){
     }
   };
   const result = Promise.resolve(fn());
-  const minDelay = sleep(550); // keep the spinner visible a moment even on a fast network
+  const minDelay = sleep(330); // keep the spinner visible a moment even on a fast network
   return Promise.all([result, minDelay]).then(([r])=>r).finally(restore);
 }
 
