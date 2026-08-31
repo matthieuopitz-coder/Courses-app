@@ -307,7 +307,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.16";
+const APP_VERSION = "V1.17";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -742,7 +742,7 @@ function renderPlatsTab(){
 
 async function recipeDetailModal(recipeOrNull){
   const isEdit = !!recipeOrNull;
-  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:'', baseServings:4, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', photoCount:0 };
+  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:'', baseServings:2, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', photoCount:0 };
   window._editingRecipe = r;
   window._showSteps = false;
   window._recipePhotos = [];
