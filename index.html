@@ -28,6 +28,7 @@
     --radius:14px;
   }
   *{box-sizing:border-box;}
+  button{-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
     background:var(--bg);
@@ -261,12 +262,15 @@
     font-size:13.5px;font-weight:600;padding:7px 10px;cursor:pointer;
   }
 
-  .ing-subtitle{font-size:17.5px;font-weight:600;color:var(--ink);margin-bottom:10px;white-space:nowrap;display:flex;align-items:center;gap:5px;}
+  .ing-subtitle{font-size:17.5px;font-weight:600;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;flex-wrap:wrap;gap:5px;}
   .inline-num{
-    width:52px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;
-    font-size:17px;font-weight:600;text-align:center;margin:0 3px;flex-shrink:0;
+    width:34px;padding:4px 2px;border:1px solid var(--line);border-radius:7px;
+    font-size:16px;font-weight:600;text-align:center;margin:0 1px;flex-shrink:0;
     background:#FCFBF8;color:var(--primary-dark);font-family:'Inter',sans-serif;
+    -moz-appearance:textfield;
   }
+  .inline-num::-webkit-outer-spin-button,
+  .inline-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   .servings-box{
     background:var(--surface);border:1px solid var(--line);border-radius:12px;
     padding:14px;margin:6px 0 16px;
@@ -303,7 +307,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.13";
+const APP_VERSION = "V1.14";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -1275,8 +1279,9 @@ function withLoading(btn, fn){
       delete btn.dataset.prevHtml;
     }
   };
-  const result = fn();
-  return Promise.resolve(result).finally(restore);
+  const result = Promise.resolve(fn());
+  const minDelay = sleep(550); // keep the spinner visible a moment even on a fast network
+  return Promise.all([result, minDelay]).then(([r])=>r).finally(restore);
 }
 
 function showToast(msg){
