@@ -314,7 +314,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.20";
+const APP_VERSION = "V1.21";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -322,7 +322,9 @@ const unitLabel = v => (UNITS.find(u=>u.v===v)||{l:v}).l;
 const uid = () => Math.random().toString(36).slice(2,10);
 
 let state = { products: [], stores: [], recipes: [], shoppingList: { checklist: [] } };
-let currentTab = 'produits';
+const VALID_TABS = ['produits','plats','courses'];
+const hashTab = (location.hash||'').replace('#','');
+let currentTab = VALID_TABS.includes(hashTab) ? hashTab : 'produits';
 let pollTimer = null;
 const sleep = ms => new Promise(res=>setTimeout(res, ms));
 
@@ -1070,7 +1072,10 @@ function modalClickHandler(e){
     const isProductModal = !!overlay.querySelector('#f-pname');
     const isStoresManager = !!overlay.querySelector('#stores-list');
     overlay.remove();
-    if(isRecipeModal) window._editingRecipe=null;
+    if(isRecipeModal){
+      window._editingRecipe=null;
+      if(currentTab==='plats') updatePlatsList();
+    }
     if(isProductModal) window._editingProduct=null;
     if(isStoresManager) refreshProductStoreSelect();
     window._pendingPickerContext=null;
@@ -1402,6 +1407,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     currentTab = t.dataset.tab;
     productSearchQuery = '';
     platsSearchQuery = '';
+    history.replaceState(null, '', '#'+currentTab);
     render();
   });
 });
