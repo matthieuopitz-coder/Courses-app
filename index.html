@@ -67,17 +67,17 @@
     background:var(--surface);border:1px solid var(--line);
     border-radius:var(--radius);padding:16px;margin-bottom:12px;
   }
-  .recipe-card{display:flex;align-items:center;gap:12px;cursor:pointer;}
-  .recipe-card.in-cart{border-color:#8FB89B;border-width:2px;background:#F3FAF4;}
+  .recipe-card{display:flex;align-items:center;gap:12px;cursor:pointer;position:relative;}
+  .recipe-card.in-cart{border-color:#8FB89B;border-width:2px;}
   .recipe-card .rc-thumb{
     width:46px;height:46px;border-radius:10px;background:var(--accent-soft);overflow:hidden;
     display:flex;align-items:center;justify-content:center;font-size:21.5px;flex-shrink:0;
     position:relative;
   }
   .rc-cart-badge{
-    position:absolute;bottom:-4px;right:-4px;width:22px;height:22px;border-radius:50%;
+    position:absolute;top:-9px;left:-9px;width:24px;height:24px;border-radius:50%;
     background:var(--primary);border:2px solid var(--surface);
-    display:flex;align-items:center;justify-content:center;
+    display:flex;align-items:center;justify-content:center;z-index:2;
   }
   .search-input{
     width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:20px;
@@ -314,7 +314,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.19";
+const APP_VERSION = "V1.20";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -701,16 +701,16 @@ function renderPlatsListInner(){
       : (pCount>0 ? '📷' : '🍽️');
     const sent = recipeInShoppingList(r);
     html += `<div class="card recipe-card ${sent?'in-cart':''}" data-open-recipe="${r.id}">
+      ${sent ? `<span class="rc-cart-badge" title="Dans la liste de courses">
+        <svg viewBox="0 0 24 24" width="13" height="13">
+          <path d="M3 4h2.5l1.2 3.2" stroke="#F1EEE2" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+          <path d="M7 8h13l-1.8 6.5H9z" fill="#F1EEE2"/>
+          <circle cx="10" cy="18.5" r="1.4" fill="#F1EEE2"/>
+          <circle cx="16" cy="18.5" r="1.4" fill="#F1EEE2"/>
+        </svg>
+      </span>` : ''}
       <div class="rc-thumb">
         ${thumbContent}
-        ${sent ? `<span class="rc-cart-badge" title="Dans la liste de courses">
-          <svg viewBox="0 0 24 24" width="13" height="13">
-            <path d="M3 4h2.5l1.2 3.2" stroke="#F1EEE2" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-            <path d="M7 8h13l-1.8 6.5H9z" fill="#F1EEE2"/>
-            <circle cx="10" cy="18.5" r="1.4" fill="#F1EEE2"/>
-            <circle cx="16" cy="18.5" r="1.4" fill="#F1EEE2"/>
-          </svg>
-        </span>` : ''}
       </div>
       <div class="rc-main">
         <h3>${escapeHtml(r.name)}</h3>
