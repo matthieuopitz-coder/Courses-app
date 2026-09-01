@@ -314,7 +314,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.21";
+const APP_VERSION = "V1.22";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -676,6 +676,10 @@ const MAX_PHOTOS = 5;
 function recipeInShoppingList(r){
   return state.shoppingList.checklist.some(it=>it.sourceRecipeId===r.id && !it.checked);
 }
+function recipeSentServings(r){
+  const item = state.shoppingList.checklist.find(it=>it.sourceRecipeId===r.id && !it.checked && it.sourceServings);
+  return item ? item.sourceServings : null;
+}
 function recipePhotoCount(r){
   if(typeof r.photoCount === 'number') return r.photoCount;
   return r.hasPhoto ? 1 : 0; // backward-compat with recipes saved before multi-photo support
@@ -716,7 +720,7 @@ function renderPlatsListInner(){
       </div>
       <div class="rc-main">
         <h3>${escapeHtml(r.name)}</h3>
-        <div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${r.baseServings} pers.</div>
+        ${sent ? `<div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${recipeSentServings(r) || r.baseServings} pers.</div>` : ''}
       </div>
       <div class="rc-chevron">›</div>
     </div>`;
@@ -1256,8 +1260,8 @@ async function sendRecipeToCart(btnParam){
     const qty = (parseFloat(ing.qty)||0) * factor;
     const unit = ing.unit;
     const existing = state.shoppingList.checklist.find(it=>it.productId===ing.productId && it.unit===unit);
-    if(existing){ existing.qty += qty; existing.sourceRecipeId = r.id; }
-    else state.shoppingList.checklist.push({ id: uid(), productId: ing.productId, qty, unit, checked:false, sourceRecipeId: r.id });
+    if(existing){ existing.qty += qty; existing.sourceRecipeId = r.id; existing.sourceServings = target; }
+    else state.shoppingList.checklist.push({ id: uid(), productId: ing.productId, qty, unit, checked:false, sourceRecipeId: r.id, sourceServings: target });
   });
 
   const btn = btnParam || document.getElementById('send-to-cart-btn');
