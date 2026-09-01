@@ -68,9 +68,16 @@
     border-radius:var(--radius);padding:16px;margin-bottom:12px;
   }
   .recipe-card{display:flex;align-items:center;gap:12px;cursor:pointer;}
+  .recipe-card.in-cart{border-color:#8FB89B;border-width:2px;background:#F3FAF4;}
   .recipe-card .rc-thumb{
     width:46px;height:46px;border-radius:10px;background:var(--accent-soft);overflow:hidden;
     display:flex;align-items:center;justify-content:center;font-size:21.5px;flex-shrink:0;
+    position:relative;
+  }
+  .rc-cart-badge{
+    position:absolute;bottom:-4px;right:-4px;width:22px;height:22px;border-radius:50%;
+    background:var(--primary);border:2px solid var(--surface);
+    display:flex;align-items:center;justify-content:center;
   }
   .search-input{
     width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:20px;
@@ -282,7 +289,7 @@
     border-radius:10px;padding:13px;font-weight:700;font-size:16px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;gap:8px;
   }
-  .send-btn.sent{background:var(--accent);}
+  .send-btn.remove-mode{background:var(--accent);}
   .btn-spinner{
     display:inline-block;width:14px;height:14px;border-radius:50%;
     border:2px solid currentColor;border-right-color:transparent;border-top-color:transparent;
@@ -307,7 +314,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.17";
+const APP_VERSION = "V1.19";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -664,6 +671,9 @@ let photoCache = {};
 let photoCacheLoading = {};
 const MAX_PHOTOS = 5;
 
+function recipeInShoppingList(r){
+  return state.shoppingList.checklist.some(it=>it.sourceRecipeId===r.id && !it.checked);
+}
 function recipePhotoCount(r){
   if(typeof r.photoCount === 'number') return r.photoCount;
   return r.hasPhoto ? 1 : 0; // backward-compat with recipes saved before multi-photo support
@@ -689,8 +699,19 @@ function renderPlatsListInner(){
     const thumbContent = (pCount>0 && photoCache[r.id])
       ? `<img src="${photoCache[r.id]}" style="width:100%;height:100%;object-fit:cover;">`
       : (pCount>0 ? '📷' : '🍽️');
-    html += `<div class="card recipe-card" data-open-recipe="${r.id}">
-      <div class="rc-thumb">${thumbContent}</div>
+    const sent = recipeInShoppingList(r);
+    html += `<div class="card recipe-card ${sent?'in-cart':''}" data-open-recipe="${r.id}">
+      <div class="rc-thumb">
+        ${thumbContent}
+        ${sent ? `<span class="rc-cart-badge" title="Dans la liste de courses">
+          <svg viewBox="0 0 24 24" width="13" height="13">
+            <path d="M3 4h2.5l1.2 3.2" stroke="#F1EEE2" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+            <path d="M7 8h13l-1.8 6.5H9z" fill="#F1EEE2"/>
+            <circle cx="10" cy="18.5" r="1.4" fill="#F1EEE2"/>
+            <circle cx="16" cy="18.5" r="1.4" fill="#F1EEE2"/>
+          </svg>
+        </span>` : ''}
+      </div>
       <div class="rc-main">
         <h3>${escapeHtml(r.name)}</h3>
         <div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${r.baseServings} pers.</div>
@@ -817,7 +838,7 @@ function renderRecipeFormBody(){
         <input type="number" id="f-send-servings" min="1" value="${window._sendServings}">
         <span class="subtle">→ ajuste les quantités avant l'envoi</span>
       </div>
-      <button class="send-btn" id="send-to-cart-btn" type="button" data-send-cart>🛒 Envoyer dans la liste de courses</button>
+      <button class="send-btn ${recipeInShoppingList(r)?'remove-mode':''}" id="send-to-cart-btn" type="button" data-cart-action="${recipeInShoppingList(r)?'remove':'send'}">${recipeInShoppingList(r) ? '✕ Supprimer de la liste de courses' : '🛒 Envoyer dans la liste de courses'}</button>
     </div>
 
     <div class="field">
@@ -1104,8 +1125,13 @@ function modalClickHandler(e){
     if(zone) zone.outerHTML = photoZoneHtml();
     return;
   }
-  const sendBtnEl = e.target.closest('[data-send-cart]');
-  if(sendBtnEl){ sendRecipeToCart(sendBtnEl); return; }
+  const cartBtnEl = e.target.closest('[data-cart-action]');
+  if(cartBtnEl){
+    const action = cartBtnEl.getAttribute('data-cart-action');
+    if(action==='remove') removeRecipeFromCart(cartBtnEl);
+    else sendRecipeToCart(cartBtnEl);
+    return;
+  }
   const saveRecipeBtn = e.target.closest('[data-save-recipe]');
   if(saveRecipeBtn){
     withLoading(saveRecipeBtn, ()=>saveRecipeFromForm()).then(()=>{ overlay.remove(); render(); });
@@ -1225,14 +1251,34 @@ async function sendRecipeToCart(btnParam){
     const qty = (parseFloat(ing.qty)||0) * factor;
     const unit = ing.unit;
     const existing = state.shoppingList.checklist.find(it=>it.productId===ing.productId && it.unit===unit);
-    if(existing) existing.qty += qty;
-    else state.shoppingList.checklist.push({ id: uid(), productId: ing.productId, qty, unit, checked:false });
+    if(existing){ existing.qty += qty; existing.sourceRecipeId = r.id; }
+    else state.shoppingList.checklist.push({ id: uid(), productId: ing.productId, qty, unit, checked:false, sourceRecipeId: r.id });
   });
 
   const btn = btnParam || document.getElementById('send-to-cart-btn');
   await withLoading(btn, ()=>safeSet('shopping_list', state.shoppingList));
-  if(btn){ btn.textContent = '✓ Ajouté à la liste'; btn.classList.add('sent'); setTimeout(()=>{ if(btn){ btn.textContent='🛒 Envoyer dans la liste de courses'; btn.classList.remove('sent'); } },1800); }
   showToast('Ajouté à la liste de courses');
+  refreshCartButton();
+}
+
+async function removeRecipeFromCart(btnParam){
+  const r = window._editingRecipe;
+  if(!r) return;
+  state.shoppingList.checklist = state.shoppingList.checklist.filter(it=>!(it.sourceRecipeId===r.id && !it.checked));
+  const btn = btnParam || document.getElementById('send-to-cart-btn');
+  await withLoading(btn, ()=>safeSet('shopping_list', state.shoppingList));
+  showToast('Retiré de la liste de courses');
+  refreshCartButton();
+}
+
+function refreshCartButton(){
+  const r = window._editingRecipe;
+  const btn = document.getElementById('send-to-cart-btn');
+  if(!btn || !r) return;
+  const inCart = recipeInShoppingList(r);
+  btn.classList.toggle('remove-mode', inCart);
+  btn.setAttribute('data-cart-action', inCart ? 'remove' : 'send');
+  btn.innerHTML = inCart ? '✕ Supprimer de la liste de courses' : '🛒 Envoyer dans la liste de courses';
 }
 
 function confirmAddProductToList(overlay, btnParam){
