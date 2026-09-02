@@ -314,7 +314,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.22";
+const APP_VERSION = "V1.23";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -950,6 +950,32 @@ function showModal(html){
   overlay.addEventListener('input', modalInputHandler);
   overlay.addEventListener('change', modalChangeHandler);
 
+  // Selecting a picker suggestion must fire before the on-screen keyboard's
+  // dismissal swallows the tap — mousedown/touchstart fire earlier than click.
+  function handlePickerSelect(e){
+    const pickOpt = e.target.closest('.prod-pick-option');
+    if(pickOpt){
+      e.preventDefault();
+      const ctx = pickOpt.getAttribute('data-picker-context');
+      const product = findProduct(pickOpt.getAttribute('data-product-id'));
+      applyProductPickerSelection(ctx, product);
+      hideAllProdPickerLists();
+      return;
+    }
+    const pickNew = e.target.closest('.prod-pick-new');
+    if(pickNew){
+      e.preventDefault();
+      const ctx = pickNew.getAttribute('data-picker-context');
+      const inputEl = document.querySelector(`.prod-picker-input[data-picker-context="${ctx}"]`);
+      const typed = inputEl ? inputEl.value.trim() : '';
+      window._pendingPickerContext = ctx;
+      hideAllProdPickerLists();
+      showModal(productFormModal(null, typed));
+    }
+  }
+  overlay.addEventListener('mousedown', handlePickerSelect);
+  overlay.addEventListener('touchstart', handlePickerSelect, {passive:false});
+
   let touchStartX = null;
   overlay.addEventListener('touchstart', (e)=>{
     if(e.target.closest('.photo-zone')) touchStartX = e.touches[0].clientX;
@@ -1047,24 +1073,6 @@ function modalClickHandler(e){
   if(pickerInput){
     hideAllProdPickerLists();
     showProdPickerList(pickerInput.getAttribute('data-picker-context'), pickerInput.value);
-    return;
-  }
-  const pickOpt = e.target.closest('.prod-pick-option');
-  if(pickOpt){
-    const ctx = pickOpt.getAttribute('data-picker-context');
-    const product = findProduct(pickOpt.getAttribute('data-product-id'));
-    applyProductPickerSelection(ctx, product);
-    hideAllProdPickerLists();
-    return;
-  }
-  const pickNew = e.target.closest('.prod-pick-new');
-  if(pickNew){
-    const ctx = pickNew.getAttribute('data-picker-context');
-    const inputEl = document.querySelector(`.prod-picker-input[data-picker-context="${ctx}"]`);
-    const typed = inputEl ? inputEl.value.trim() : '';
-    window._pendingPickerContext = ctx;
-    hideAllProdPickerLists();
-    showModal(productFormModal(null, typed));
     return;
   }
   if(!e.target.closest('.prod-picker')){
