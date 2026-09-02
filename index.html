@@ -79,6 +79,14 @@
     background:var(--primary);border:2px solid var(--surface);
     display:flex;align-items:center;justify-content:center;z-index:2;
   }
+  .search-row{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+  .search-row .search-input{margin-bottom:0;flex:1;min-width:0;}
+  .fab-inline{
+    width:44px;height:44px;border-radius:50%;flex-shrink:0;border:none;cursor:pointer;
+    background:#3E6350;color:#fff;font-size:24px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 8px rgba(62,99,80,.35);
+  }
   .search-input{
     width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:20px;
     font-family:'Inter',sans-serif;font-size:16px;background:var(--surface);color:var(--ink);
@@ -314,7 +322,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.23";
+const APP_VERSION = "V1.26";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -470,25 +478,31 @@ function renderProductsListInner(){
   if(state.products.length===0){
     return `<div class="empty"><div class="em-icon">🥕</div><p>Aucun produit pour l'instant.</p><p>Ajoute tes produits du quotidien avec le bouton +</p></div>`;
   }
-  const q = productSearchQuery.trim().toLowerCase();
+  const qRaw = productSearchQuery.trim();
+  const q = qRaw.toLowerCase();
   const filtered = state.products.filter(p=>p.name.toLowerCase().includes(q));
+  let html = '';
   if(filtered.length===0){
-    return `<div class="empty"><div class="em-icon">🔍</div><p>Aucun produit ne correspond à ta recherche.</p></div>`;
+    html += `<div class="empty"><div class="em-icon">🔍</div><p>Aucun produit ne correspond à ta recherche.</p></div>`;
+  } else {
+    const inListIds = new Set(state.shoppingList.checklist.map(it=>it.productId));
+    html += `<div class="card" style="padding:4px 12px;">`;
+    filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+      const sn = storeName(p.storeId);
+      const inList = inListIds.has(p.id);
+      html += `<div class="product-row ${inList?'in-list':''}" data-add-product="${p.id}">
+        <span class="pr-name">${escapeHtml(p.name)}</span>
+        <div class="pr-right">
+          <span class="pr-store ${sn?'':'none'}">${sn?escapeHtml(sn):'Sans magasin'}</span>
+          <button class="pr-edit" data-edit-product="${p.id}" title="Modifier">✎</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
   }
-  const inListIds = new Set(state.shoppingList.checklist.map(it=>it.productId));
-  let html = `<div class="card" style="padding:4px 12px;">`;
-  filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
-    const sn = storeName(p.storeId);
-    const inList = inListIds.has(p.id);
-    html += `<div class="product-row ${inList?'in-list':''}" data-add-product="${p.id}">
-      <span class="pr-name">${escapeHtml(p.name)}</span>
-      <div class="pr-right">
-        <span class="pr-store ${sn?'':'none'}">${sn?escapeHtml(sn):'Sans magasin'}</span>
-        <button class="pr-edit" data-edit-product="${p.id}" title="Modifier">✎</button>
-      </div>
-    </div>`;
-  });
-  html += `</div>`;
+  if(qRaw){
+    html += `<button type="button" class="btn btn-ghost btn-block" data-quick-add-product style="margin-top:10px;">+ Ajouter "${escapeHtml(qRaw)}" à la liste de produits</button>`;
+  }
   return html;
 }
 
@@ -507,6 +521,12 @@ function attachProductRowHandlers(container){
       if(p) showModal(productFormModal(p));
     });
   });
+  const quickAddBtn = container.querySelector('[data-quick-add-product]');
+  if(quickAddBtn){
+    quickAddBtn.addEventListener('click', ()=>{
+      showModal(productFormModal(null, productSearchQuery.trim()));
+    });
+  }
 }
 function updateProductsList(){
   const container = document.getElementById('products-list-container');
@@ -524,10 +544,15 @@ function refreshProductStoreSelect(){
 function renderProduitsTab(){
   let html = `<div class="header"><h1>Produits</h1><span class="tag">${state.products.length} produit${state.products.length>1?'s':''}</span></div>`;
   if(state.products.length>0){
-    html += `<input type="text" class="search-input" id="product-search" placeholder="Rechercher un produit…" value="${escapeHtml(productSearchQuery)}">`;
+    html += `<div class="search-row">
+      <input type="text" class="search-input" id="product-search" placeholder="Rechercher un produit…" value="${escapeHtml(productSearchQuery)}">
+      <button class="fab-inline" data-new-product type="button">+</button>
+    </div>`;
   }
   html += `<div id="products-list-container">${renderProductsListInner()}</div>`;
-  html += `<button class="fab" data-new-product>+</button>`;
+  if(state.products.length===0){
+    html += `<button class="fab" data-new-product>+</button>`;
+  }
   return html;
 }
 
@@ -694,37 +719,42 @@ function renderPlatsListInner(){
   if(state.recipes.length===0){
     return `<div class="empty"><div class="em-icon">🍳</div><p>Aucune recette pour l'instant.</p><p>Ajoute ton premier plat avec le bouton +</p></div>`;
   }
-  const q = platsSearchQuery.trim().toLowerCase();
+  const qRaw = platsSearchQuery.trim();
+  const q = qRaw.toLowerCase();
   const filtered = state.recipes.filter(r=>r.name.toLowerCase().includes(q));
-  if(filtered.length===0){
-    return `<div class="empty"><div class="em-icon">🔍</div><p>Aucun plat ne correspond à ta recherche.</p></div>`;
-  }
   let html = '';
-  filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{
-    const pCount = recipePhotoCount(r);
-    const thumbContent = (pCount>0 && photoCache[r.id])
-      ? `<img src="${photoCache[r.id]}" style="width:100%;height:100%;object-fit:cover;">`
-      : (pCount>0 ? '📷' : '🍽️');
-    const sent = recipeInShoppingList(r);
-    html += `<div class="card recipe-card ${sent?'in-cart':''}" data-open-recipe="${r.id}">
-      ${sent ? `<span class="rc-cart-badge" title="Dans la liste de courses">
-        <svg viewBox="0 0 24 24" width="13" height="13">
-          <path d="M3 4h2.5l1.2 3.2" stroke="#F1EEE2" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-          <path d="M7 8h13l-1.8 6.5H9z" fill="#F1EEE2"/>
-          <circle cx="10" cy="18.5" r="1.4" fill="#F1EEE2"/>
-          <circle cx="16" cy="18.5" r="1.4" fill="#F1EEE2"/>
-        </svg>
-      </span>` : ''}
-      <div class="rc-thumb">
-        ${thumbContent}
-      </div>
-      <div class="rc-main">
-        <h3>${escapeHtml(r.name)}</h3>
-        ${sent ? `<div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${recipeSentServings(r) || r.baseServings} pers.</div>` : ''}
-      </div>
-      <div class="rc-chevron">›</div>
-    </div>`;
-  });
+  if(filtered.length===0){
+    html += `<div class="empty"><div class="em-icon">🔍</div><p>Aucun plat ne correspond à ta recherche.</p></div>`;
+  } else {
+    filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{
+      const pCount = recipePhotoCount(r);
+      const thumbContent = (pCount>0 && photoCache[r.id])
+        ? `<img src="${photoCache[r.id]}" style="width:100%;height:100%;object-fit:cover;">`
+        : (pCount>0 ? '📷' : '🍽️');
+      const sent = recipeInShoppingList(r);
+      html += `<div class="card recipe-card ${sent?'in-cart':''}" data-open-recipe="${r.id}">
+        ${sent ? `<span class="rc-cart-badge" title="Dans la liste de courses">
+          <svg viewBox="0 0 24 24" width="13" height="13">
+            <path d="M3 4h2.5l1.2 3.2" stroke="#F1EEE2" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+            <path d="M7 8h13l-1.8 6.5H9z" fill="#F1EEE2"/>
+            <circle cx="10" cy="18.5" r="1.4" fill="#F1EEE2"/>
+            <circle cx="16" cy="18.5" r="1.4" fill="#F1EEE2"/>
+          </svg>
+        </span>` : ''}
+        <div class="rc-thumb">
+          ${thumbContent}
+        </div>
+        <div class="rc-main">
+          <h3>${escapeHtml(r.name)}</h3>
+          ${sent ? `<div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${recipeSentServings(r) || r.baseServings} pers.</div>` : ''}
+        </div>
+        <div class="rc-chevron">›</div>
+      </div>`;
+    });
+  }
+  if(qRaw){
+    html += `<button type="button" class="btn btn-ghost btn-block" data-quick-add-recipe style="margin-top:10px;">+ Ajouter "${escapeHtml(qRaw)}" comme nouveau plat</button>`;
+  }
   return html;
 }
 
@@ -736,6 +766,12 @@ function attachPlatsRowHandlers(container){
       recipeDetailModal(r);
     });
   });
+  const quickAddBtn = container.querySelector('[data-quick-add-recipe]');
+  if(quickAddBtn){
+    quickAddBtn.addEventListener('click', ()=>{
+      recipeDetailModal(null, platsSearchQuery.trim());
+    });
+  }
 }
 function updatePlatsList(){
   const container = document.getElementById('plats-list-container');
@@ -760,16 +796,21 @@ async function ensurePlatsThumbnails(){
 function renderPlatsTab(){
   let html = `<div class="header"><h1>Plats</h1><span class="tag">${state.recipes.length} plat${state.recipes.length>1?'s':''}</span></div>`;
   if(state.recipes.length>0){
-    html += `<input type="text" class="search-input" id="plats-search" placeholder="Rechercher un plat…" value="${escapeHtml(platsSearchQuery)}">`;
+    html += `<div class="search-row">
+      <input type="text" class="search-input" id="plats-search" placeholder="Rechercher un plat…" value="${escapeHtml(platsSearchQuery)}">
+      <button class="fab-inline" data-new-recipe type="button">+</button>
+    </div>`;
   }
   html += `<div id="plats-list-container">${renderPlatsListInner()}</div>`;
-  html += `<button class="fab" data-new-recipe>+</button>`;
+  if(state.recipes.length===0){
+    html += `<button class="fab" data-new-recipe>+</button>`;
+  }
   return html;
 }
 
-async function recipeDetailModal(recipeOrNull){
+async function recipeDetailModal(recipeOrNull, prefillName){
   const isEdit = !!recipeOrNull;
-  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:'', baseServings:2, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', photoCount:0 };
+  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:prefillName||'', baseServings:2, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', photoCount:0 };
   window._editingRecipe = r;
   window._showSteps = false;
   window._recipePhotos = [];
@@ -868,48 +909,110 @@ function renderRecipeFormBody(){
 }
 
 /* ---------- COURSES TAB ---------- */
-function renderCoursesTab(){
-  let html = `<div class="header"><h1>Courses</h1></div>`;
+let coursesSearchQuery = '';
 
+function renderCoursesListInner(){
   if(!state.shoppingList.checklist || state.shoppingList.checklist.length===0){
-    html += `<div class="empty"><div class="em-icon">🛒</div><p>Ta liste de courses est vide.</p><p>Ajoute des produits ici, ou envoie un plat depuis l'onglet Plats.</p></div>`;
-    html += `<button class="fab" data-add-to-list>+</button>`;
-    return html;
+    return `<div class="empty"><div class="em-icon">🛒</div><p>Ta liste de courses est vide.</p><p>Ajoute des produits ici, ou envoie un plat depuis l'onglet Plats.</p></div>`;
   }
-
+  const q = coursesSearchQuery.trim().toLowerCase();
   const byStore = {};
+  let matchCount = 0;
   state.shoppingList.checklist.forEach(item=>{
     const product = findProduct(item.productId);
+    const name = product ? product.name : '(produit supprimé)';
+    if(q && !name.toLowerCase().includes(q)) return;
+    matchCount++;
     const sid = (product && product.storeId) ? product.storeId : '_none';
     if(!byStore[sid]) byStore[sid]=[];
-    byStore[sid].push({...item, productName: product ? product.name : '(produit supprimé)'});
+    byStore[sid].push({...item, productName: name});
   });
-  const storeOrder = Object.keys(byStore).sort((a,b)=>{
-    if(a==='_none') return 1;
-    if(b==='_none') return -1;
-    return storeName(a).localeCompare(storeName(b));
-  });
-  storeOrder.forEach(sid=>{
-    const items = byStore[sid];
-    const doneCount = items.filter(i=>i.checked).length;
-    html += `<div class="ticket">
-      <div class="ticket-store">
-        <span class="stamp">${sid==='_none'?'Sans magasin':escapeHtml(storeName(sid))}</span>
-        <span class="count">${doneCount}/${items.length}</span>
-      </div>`;
-    items.forEach(item=>{
-      const qtyStr = item.qty ? (item.unit==='nombre' ? formatQty(item.qty) : `${formatQty(item.qty)} ${unitLabel(item.unit)}`) : '';
-      html += `<div class="ticket-item ${item.checked?'done':''}" data-toggle-item="${item.id}">
-        <span class="ti-name">${escapeHtml(item.productName)}</span>
-        <span class="ti-qty">${qtyStr}</span>
-        <button class="item-remove" data-remove-item="${item.id}" title="Retirer de la liste">✕</button>
-      </div>`;
+
+  let html = '';
+  if(matchCount===0){
+    html += `<div class="empty"><div class="em-icon">🔍</div><p>Aucun produit ne correspond à ta recherche.</p></div>`;
+  } else {
+    const storeOrder = Object.keys(byStore).sort((a,b)=>{
+      if(a==='_none') return 1;
+      if(b==='_none') return -1;
+      return storeName(a).localeCompare(storeName(b));
     });
-    html += `</div>`;
-  });
+    storeOrder.forEach(sid=>{
+      const items = byStore[sid];
+      const doneCount = items.filter(i=>i.checked).length;
+      html += `<div class="ticket">
+        <div class="ticket-store">
+          <span class="stamp">${sid==='_none'?'Sans magasin':escapeHtml(storeName(sid))}</span>
+          <span class="count">${doneCount}/${items.length}</span>
+        </div>`;
+      items.forEach(item=>{
+        const qtyStr = item.qty ? (item.unit==='nombre' ? formatQty(item.qty) : `${formatQty(item.qty)} ${unitLabel(item.unit)}`) : '';
+        html += `<div class="ticket-item ${item.checked?'done':''}" data-toggle-item="${item.id}">
+          <span class="ti-name">${escapeHtml(item.productName)}</span>
+          <span class="ti-qty">${qtyStr}</span>
+          <button class="item-remove" data-remove-item="${item.id}" title="Retirer de la liste">✕</button>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+  }
   html += `<button class="btn btn-soft-danger btn-block" data-remove-purchased style="margin-bottom:10px;">Supprimer les éléments achetés</button>`;
   html += `<button class="btn btn-soft-danger btn-block" data-clear-list style="margin-bottom:20px;">Vider la liste</button>`;
-  html += `<button class="fab" data-add-to-list>+</button>`;
+  return html;
+}
+
+function attachCoursesListHandlers(container){
+  if(!container) return;
+  container.querySelectorAll('[data-toggle-item]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const id = el.getAttribute('data-toggle-item');
+      const item = state.shoppingList.checklist.find(i=>i.id===id);
+      if(item){ item.checked = !item.checked; await safeSet('shopping_list', state.shoppingList); updateCoursesList(); }
+    });
+  });
+  container.querySelectorAll('[data-remove-item]').forEach(el=>{
+    el.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const id = el.getAttribute('data-remove-item');
+      state.shoppingList.checklist = state.shoppingList.checklist.filter(i=>i.id!==id);
+      await safeSet('shopping_list', state.shoppingList);
+      updateCoursesList();
+    });
+  });
+  const removePurchasedBtn = container.querySelector('[data-remove-purchased]');
+  if(removePurchasedBtn) removePurchasedBtn.addEventListener('click', async ()=>{
+    state.shoppingList.checklist = state.shoppingList.checklist.filter(i=>!i.checked);
+    await withLoading(removePurchasedBtn, ()=>safeSet('shopping_list', state.shoppingList));
+    render();
+  });
+  const clearBtn = container.querySelector('[data-clear-list]');
+  if(clearBtn) clearBtn.addEventListener('click', async ()=>{
+    if(!confirm('Vider la liste de courses ?')) return;
+    state.shoppingList = { checklist: [] };
+    await withLoading(clearBtn, ()=>safeSet('shopping_list', state.shoppingList));
+    render();
+  });
+}
+function updateCoursesList(){
+  const container = document.getElementById('courses-list-container');
+  if(!container) return;
+  container.innerHTML = renderCoursesListInner();
+  attachCoursesListHandlers(container);
+}
+
+function renderCoursesTab(){
+  let html = `<div class="header"><h1>Courses</h1></div>`;
+  const hasItems = state.shoppingList.checklist && state.shoppingList.checklist.length>0;
+  if(hasItems){
+    html += `<div class="search-row">
+      <input type="text" class="search-input" id="courses-search" placeholder="Rechercher dans la liste…" value="${escapeHtml(coursesSearchQuery)}">
+      <button class="fab-inline" data-add-to-list type="button">+</button>
+    </div>`;
+  }
+  html += `<div id="courses-list-container">${renderCoursesListInner()}</div>`;
+  if(!hasItems){
+    html += `<button class="fab" data-add-to-list>+</button>`;
+  }
   return html;
 }
 
@@ -1377,36 +1480,11 @@ function attachHandlers(){
 
   const addToListBtn = app.querySelector('[data-add-to-list]');
   if(addToListBtn) addToListBtn.addEventListener('click', ()=>showModal(addToListModal()));
-
-  app.querySelectorAll('[data-toggle-item]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const id = el.getAttribute('data-toggle-item');
-      const item = state.shoppingList.checklist.find(i=>i.id===id);
-      if(item){ item.checked = !item.checked; await safeSet('shopping_list', state.shoppingList); render(); }
-    });
-  });
-  app.querySelectorAll('[data-remove-item]').forEach(el=>{
-    el.addEventListener('click', async (e)=>{
-      e.stopPropagation();
-      const id = el.getAttribute('data-remove-item');
-      state.shoppingList.checklist = state.shoppingList.checklist.filter(i=>i.id!==id);
-      await safeSet('shopping_list', state.shoppingList);
-      render();
-    });
-  });
-  const removePurchasedBtn = app.querySelector('[data-remove-purchased]');
-  if(removePurchasedBtn) removePurchasedBtn.addEventListener('click', async ()=>{
-    state.shoppingList.checklist = state.shoppingList.checklist.filter(i=>!i.checked);
-    await withLoading(removePurchasedBtn, ()=>safeSet('shopping_list', state.shoppingList));
-    render();
-  });
-  const clearBtn = app.querySelector('[data-clear-list]');
-  if(clearBtn) clearBtn.addEventListener('click', async ()=>{
-    if(!confirm('Vider la liste de courses ?')) return;
-    state.shoppingList = { checklist: [] };
-    await withLoading(clearBtn, ()=>safeSet('shopping_list', state.shoppingList));
-    render();
-  });
+  attachCoursesListHandlers(document.getElementById('courses-list-container'));
+  const coursesSearchInput = app.querySelector('#courses-search');
+  if(coursesSearchInput){
+    coursesSearchInput.addEventListener('input', (e)=>{ coursesSearchQuery = e.target.value; updateCoursesList(); });
+  }
 }
 
 function escapeHtml(s){
@@ -1419,6 +1497,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     currentTab = t.dataset.tab;
     productSearchQuery = '';
     platsSearchQuery = '';
+    coursesSearchQuery = '';
     history.replaceState(null, '', '#'+currentTab);
     render();
   });
@@ -1442,7 +1521,7 @@ async function init(){
   pollTimer = setInterval(async ()=>{
     if(document.querySelector('.modal-overlay')) return;
     const fresh = await safeGet('shopping_list');
-    if(fresh){ state.shoppingList = fresh; if(currentTab==='courses') render(); }
+    if(fresh){ state.shoppingList = fresh; if(currentTab==='courses') updateCoursesList(); }
   }, 6000);
 }
 init();
