@@ -327,7 +327,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.27";
+const APP_VERSION = "V1.28";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -1044,6 +1044,16 @@ function formatQty(q){
 let modalHistoryDepth = 0;
 
 function showModal(html){
+  const activeEl = document.activeElement;
+  const keyboardOpen = activeEl && typeof activeEl.blur === 'function' && (activeEl.tagName==='INPUT' || activeEl.tagName==='TEXTAREA');
+  if(keyboardOpen){
+    activeEl.blur();
+    setTimeout(()=>showModalNow(html), 120);
+  } else {
+    showModalNow(html);
+  }
+}
+function showModalNow(html){
   const div = document.createElement('div');
   div.innerHTML = html;
   document.body.appendChild(div.firstElementChild);
