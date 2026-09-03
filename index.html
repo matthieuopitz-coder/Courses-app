@@ -182,6 +182,11 @@
     padding:11px 13px;font-size:14.5px;font-weight:600;color:var(--primary);
     cursor:pointer;border-top:1px dashed var(--line);background:#FAF8F3;
   }
+  .inline-picker-list{
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  }
+  .prod-pick-option.no-match{cursor:default;color:var(--muted);}
+  .prod-pick-option.no-match:active{background:transparent;}
   .ing-row input,.ing-row select{
     padding:9px 8px;border:1px solid var(--line);border-radius:8px;
     font-size:15px;background:#FCFBF8;color:var(--ink);width:100%;
@@ -322,7 +327,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.26";
+const APP_VERSION = "V1.27";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
 ];
@@ -479,27 +484,29 @@ function renderProductsListInner(){
     return `<div class="empty"><div class="em-icon">🥕</div><p>Aucun produit pour l'instant.</p><p>Ajoute tes produits du quotidien avec le bouton +</p></div>`;
   }
   const qRaw = productSearchQuery.trim();
-  const q = qRaw.toLowerCase();
-  const filtered = state.products.filter(p=>p.name.toLowerCase().includes(q));
+  const filtered = filterProductsByQuery(qRaw);
   let html = '';
   if(filtered.length===0){
-    html += `<div class="empty"><div class="em-icon">🔍</div><p>Aucun produit ne correspond à ta recherche.</p></div>`;
-  } else {
-    const inListIds = new Set(state.shoppingList.checklist.map(it=>it.productId));
-    html += `<div class="card" style="padding:4px 12px;">`;
-    filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
-      const sn = storeName(p.storeId);
-      const inList = inListIds.has(p.id);
-      html += `<div class="product-row ${inList?'in-list':''}" data-add-product="${p.id}">
-        <span class="pr-name">${escapeHtml(p.name)}</span>
-        <div class="pr-right">
-          <span class="pr-store ${sn?'':'none'}">${sn?escapeHtml(sn):'Sans magasin'}</span>
-          <button class="pr-edit" data-edit-product="${p.id}" title="Modifier">✎</button>
-        </div>
-      </div>`;
-    });
-    html += `</div>`;
+    html += `<div class="inline-picker-list">
+      <div class="prod-pick-option no-match">Aucun produit trouvé.</div>
+      <div class="prod-pick-new" data-quick-add-product>+ Ajouter "${escapeHtml(qRaw)}" à la liste de produits</div>
+    </div>`;
+    return html;
   }
+  const inListIds = new Set(state.shoppingList.checklist.map(it=>it.productId));
+  html += `<div class="card" style="padding:4px 12px;">`;
+  filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    const sn = storeName(p.storeId);
+    const inList = inListIds.has(p.id);
+    html += `<div class="product-row ${inList?'in-list':''}" data-add-product="${p.id}">
+      <span class="pr-name">${escapeHtml(p.name)}</span>
+      <div class="pr-right">
+        <span class="pr-store ${sn?'':'none'}">${sn?escapeHtml(sn):'Sans magasin'}</span>
+        <button class="pr-edit" data-edit-product="${p.id}" title="Modifier">✎</button>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
   if(qRaw){
     html += `<button type="button" class="btn btn-ghost btn-block" data-quick-add-product style="margin-top:10px;">+ Ajouter "${escapeHtml(qRaw)}" à la liste de produits</button>`;
   }
@@ -521,12 +528,6 @@ function attachProductRowHandlers(container){
       if(p) showModal(productFormModal(p));
     });
   });
-  const quickAddBtn = container.querySelector('[data-quick-add-product]');
-  if(quickAddBtn){
-    quickAddBtn.addEventListener('click', ()=>{
-      showModal(productFormModal(null, productSearchQuery.trim()));
-    });
-  }
 }
 function updateProductsList(){
   const container = document.getElementById('products-list-container');
@@ -563,11 +564,14 @@ function renderStoreOptions(selectedId){
 }
 
 /* ---------- PRODUCT PICKER (searchable, reused for ingredients & add-to-list) ---------- */
+function normalizeSearch(s){
+  return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
 function filterProductsByQuery(query){
-  const q = query.trim().toLowerCase();
+  const q = normalizeSearch(query.trim());
   const sorted = state.products.slice().sort((a,b)=>a.name.localeCompare(b.name));
   if(!q) return sorted;
-  return sorted.filter(p=>p.name.toLowerCase().includes(q));
+  return sorted.filter(p=>normalizeSearch(p.name).includes(q));
 }
 function productPickerListHtml(query, ctx){
   const matches = filterProductsByQuery(query).slice(0, 40);
@@ -603,6 +607,10 @@ function applyProductPickerSelection(ctx, product){
   } else if(ctx === 'addlist'){
     const input = document.getElementById('add-prod-name');
     if(input){ input.value = product.name; input.dataset.selectedId = product.id; }
+  } else if(ctx === 'courses-search'){
+    const input = document.getElementById('courses-search');
+    if(input) input.value = '';
+    showModal(productAddToListModal(product));
   }
 }
 
@@ -720,38 +728,41 @@ function renderPlatsListInner(){
     return `<div class="empty"><div class="em-icon">🍳</div><p>Aucune recette pour l'instant.</p><p>Ajoute ton premier plat avec le bouton +</p></div>`;
   }
   const qRaw = platsSearchQuery.trim();
-  const q = qRaw.toLowerCase();
-  const filtered = state.recipes.filter(r=>r.name.toLowerCase().includes(q));
+  const q = normalizeSearch(qRaw);
+  const filtered = state.recipes.filter(r=>normalizeSearch(r.name).includes(q));
   let html = '';
   if(filtered.length===0){
-    html += `<div class="empty"><div class="em-icon">🔍</div><p>Aucun plat ne correspond à ta recherche.</p></div>`;
-  } else {
-    filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{
-      const pCount = recipePhotoCount(r);
-      const thumbContent = (pCount>0 && photoCache[r.id])
-        ? `<img src="${photoCache[r.id]}" style="width:100%;height:100%;object-fit:cover;">`
-        : (pCount>0 ? '📷' : '🍽️');
-      const sent = recipeInShoppingList(r);
-      html += `<div class="card recipe-card ${sent?'in-cart':''}" data-open-recipe="${r.id}">
-        ${sent ? `<span class="rc-cart-badge" title="Dans la liste de courses">
-          <svg viewBox="0 0 24 24" width="13" height="13">
-            <path d="M3 4h2.5l1.2 3.2" stroke="#F1EEE2" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-            <path d="M7 8h13l-1.8 6.5H9z" fill="#F1EEE2"/>
-            <circle cx="10" cy="18.5" r="1.4" fill="#F1EEE2"/>
-            <circle cx="16" cy="18.5" r="1.4" fill="#F1EEE2"/>
-          </svg>
-        </span>` : ''}
-        <div class="rc-thumb">
-          ${thumbContent}
-        </div>
-        <div class="rc-main">
-          <h3>${escapeHtml(r.name)}</h3>
-          ${sent ? `<div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${recipeSentServings(r) || r.baseServings} pers.</div>` : ''}
-        </div>
-        <div class="rc-chevron">›</div>
-      </div>`;
-    });
+    html += `<div class="inline-picker-list">
+      <div class="prod-pick-option no-match">Aucun plat trouvé.</div>
+      <div class="prod-pick-new" data-quick-add-recipe>+ Ajouter "${escapeHtml(qRaw)}" comme nouveau plat</div>
+    </div>`;
+    return html;
   }
+  filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{
+    const pCount = recipePhotoCount(r);
+    const thumbContent = (pCount>0 && photoCache[r.id])
+      ? `<img src="${photoCache[r.id]}" style="width:100%;height:100%;object-fit:cover;">`
+      : (pCount>0 ? '📷' : '🍽️');
+    const sent = recipeInShoppingList(r);
+    html += `<div class="card recipe-card ${sent?'in-cart':''}" data-open-recipe="${r.id}">
+      ${sent ? `<span class="rc-cart-badge" title="Dans la liste de courses">
+        <svg viewBox="0 0 24 24" width="13" height="13">
+          <path d="M3 4h2.5l1.2 3.2" stroke="#F1EEE2" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+          <path d="M7 8h13l-1.8 6.5H9z" fill="#F1EEE2"/>
+          <circle cx="10" cy="18.5" r="1.4" fill="#F1EEE2"/>
+          <circle cx="16" cy="18.5" r="1.4" fill="#F1EEE2"/>
+        </svg>
+      </span>` : ''}
+      <div class="rc-thumb">
+        ${thumbContent}
+      </div>
+      <div class="rc-main">
+        <h3>${escapeHtml(r.name)}</h3>
+        ${sent ? `<div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${recipeSentServings(r) || r.baseServings} pers.</div>` : ''}
+      </div>
+      <div class="rc-chevron">›</div>
+    </div>`;
+  });
   if(qRaw){
     html += `<button type="button" class="btn btn-ghost btn-block" data-quick-add-recipe style="margin-top:10px;">+ Ajouter "${escapeHtml(qRaw)}" comme nouveau plat</button>`;
   }
@@ -766,12 +777,6 @@ function attachPlatsRowHandlers(container){
       recipeDetailModal(r);
     });
   });
-  const quickAddBtn = container.querySelector('[data-quick-add-recipe]');
-  if(quickAddBtn){
-    quickAddBtn.addEventListener('click', ()=>{
-      recipeDetailModal(null, platsSearchQuery.trim());
-    });
-  }
 }
 function updatePlatsList(){
   const container = document.getElementById('plats-list-container');
@@ -909,53 +914,43 @@ function renderRecipeFormBody(){
 }
 
 /* ---------- COURSES TAB ---------- */
-let coursesSearchQuery = '';
-
 function renderCoursesListInner(){
   if(!state.shoppingList.checklist || state.shoppingList.checklist.length===0){
     return `<div class="empty"><div class="em-icon">🛒</div><p>Ta liste de courses est vide.</p><p>Ajoute des produits ici, ou envoie un plat depuis l'onglet Plats.</p></div>`;
   }
-  const q = coursesSearchQuery.trim().toLowerCase();
   const byStore = {};
-  let matchCount = 0;
   state.shoppingList.checklist.forEach(item=>{
     const product = findProduct(item.productId);
     const name = product ? product.name : '(produit supprimé)';
-    if(q && !name.toLowerCase().includes(q)) return;
-    matchCount++;
     const sid = (product && product.storeId) ? product.storeId : '_none';
     if(!byStore[sid]) byStore[sid]=[];
     byStore[sid].push({...item, productName: name});
   });
 
   let html = '';
-  if(matchCount===0){
-    html += `<div class="empty"><div class="em-icon">🔍</div><p>Aucun produit ne correspond à ta recherche.</p></div>`;
-  } else {
-    const storeOrder = Object.keys(byStore).sort((a,b)=>{
-      if(a==='_none') return 1;
-      if(b==='_none') return -1;
-      return storeName(a).localeCompare(storeName(b));
+  const storeOrder = Object.keys(byStore).sort((a,b)=>{
+    if(a==='_none') return 1;
+    if(b==='_none') return -1;
+    return storeName(a).localeCompare(storeName(b));
+  });
+  storeOrder.forEach(sid=>{
+    const items = byStore[sid];
+    const doneCount = items.filter(i=>i.checked).length;
+    html += `<div class="ticket">
+      <div class="ticket-store">
+        <span class="stamp">${sid==='_none'?'Sans magasin':escapeHtml(storeName(sid))}</span>
+        <span class="count">${doneCount}/${items.length}</span>
+      </div>`;
+    items.forEach(item=>{
+      const qtyStr = item.qty ? (item.unit==='nombre' ? formatQty(item.qty) : `${formatQty(item.qty)} ${unitLabel(item.unit)}`) : '';
+      html += `<div class="ticket-item ${item.checked?'done':''}" data-toggle-item="${item.id}">
+        <span class="ti-name">${escapeHtml(item.productName)}</span>
+        <span class="ti-qty">${qtyStr}</span>
+        <button class="item-remove" data-remove-item="${item.id}" title="Retirer de la liste">✕</button>
+      </div>`;
     });
-    storeOrder.forEach(sid=>{
-      const items = byStore[sid];
-      const doneCount = items.filter(i=>i.checked).length;
-      html += `<div class="ticket">
-        <div class="ticket-store">
-          <span class="stamp">${sid==='_none'?'Sans magasin':escapeHtml(storeName(sid))}</span>
-          <span class="count">${doneCount}/${items.length}</span>
-        </div>`;
-      items.forEach(item=>{
-        const qtyStr = item.qty ? (item.unit==='nombre' ? formatQty(item.qty) : `${formatQty(item.qty)} ${unitLabel(item.unit)}`) : '';
-        html += `<div class="ticket-item ${item.checked?'done':''}" data-toggle-item="${item.id}">
-          <span class="ti-name">${escapeHtml(item.productName)}</span>
-          <span class="ti-qty">${qtyStr}</span>
-          <button class="item-remove" data-remove-item="${item.id}" title="Retirer de la liste">✕</button>
-        </div>`;
-      });
-      html += `</div>`;
-    });
-  }
+    html += `</div>`;
+  });
   html += `<button class="btn btn-soft-danger btn-block" data-remove-purchased style="margin-bottom:10px;">Supprimer les éléments achetés</button>`;
   html += `<button class="btn btn-soft-danger btn-block" data-clear-list style="margin-bottom:20px;">Vider la liste</button>`;
   return html;
@@ -1002,15 +997,17 @@ function updateCoursesList(){
 
 function renderCoursesTab(){
   let html = `<div class="header"><h1>Courses</h1></div>`;
-  const hasItems = state.shoppingList.checklist && state.shoppingList.checklist.length>0;
-  if(hasItems){
+  if(state.products.length>0){
     html += `<div class="search-row">
-      <input type="text" class="search-input" id="courses-search" placeholder="Rechercher dans la liste…" value="${escapeHtml(coursesSearchQuery)}">
+      <div class="prod-picker" style="flex:1;min-width:0;">
+        <input type="text" class="search-input prod-picker-input" id="courses-search" data-picker-context="courses-search" placeholder="Rechercher un produit à ajouter…" autocomplete="off" value="">
+        <div class="prod-picker-list" data-picker-context="courses-search"></div>
+      </div>
       <button class="fab-inline" data-add-to-list type="button">+</button>
     </div>`;
   }
   html += `<div id="courses-list-container">${renderCoursesListInner()}</div>`;
-  if(!hasItems){
+  if(state.products.length===0){
     html += `<button class="fab" data-add-to-list>+</button>`;
   }
   return html;
@@ -1044,6 +1041,8 @@ function formatQty(q){
 }
 
 /* ---------- MODAL PLUMBING ---------- */
+let modalHistoryDepth = 0;
+
 function showModal(html){
   const div = document.createElement('div');
   div.innerHTML = html;
@@ -1053,31 +1052,8 @@ function showModal(html){
   overlay.addEventListener('input', modalInputHandler);
   overlay.addEventListener('change', modalChangeHandler);
 
-  // Selecting a picker suggestion must fire before the on-screen keyboard's
-  // dismissal swallows the tap — mousedown/touchstart fire earlier than click.
-  function handlePickerSelect(e){
-    const pickOpt = e.target.closest('.prod-pick-option');
-    if(pickOpt){
-      e.preventDefault();
-      const ctx = pickOpt.getAttribute('data-picker-context');
-      const product = findProduct(pickOpt.getAttribute('data-product-id'));
-      applyProductPickerSelection(ctx, product);
-      hideAllProdPickerLists();
-      return;
-    }
-    const pickNew = e.target.closest('.prod-pick-new');
-    if(pickNew){
-      e.preventDefault();
-      const ctx = pickNew.getAttribute('data-picker-context');
-      const inputEl = document.querySelector(`.prod-picker-input[data-picker-context="${ctx}"]`);
-      const typed = inputEl ? inputEl.value.trim() : '';
-      window._pendingPickerContext = ctx;
-      hideAllProdPickerLists();
-      showModal(productFormModal(null, typed));
-    }
-  }
-  overlay.addEventListener('mousedown', handlePickerSelect);
-  overlay.addEventListener('touchstart', handlePickerSelect, {passive:false});
+  modalHistoryDepth++;
+  history.pushState({modalDepth: modalHistoryDepth}, '', location.href);
 
   let touchStartX = null;
   overlay.addEventListener('touchstart', (e)=>{
@@ -1094,20 +1070,103 @@ function showModal(html){
     if(zone) zone.outerHTML = photoZoneHtml();
   }, {passive:true});
 }
-function closeModal(){ document.querySelectorAll('.modal-overlay').forEach(o=>o.remove()); }
 
-function modalInputHandler(e){
-  if(e.target.matches('.prod-picker-input')){
-    const ctx = e.target.getAttribute('data-picker-context');
-    if(ctx.indexOf('ing:')===0){
-      const idx = parseInt(ctx.split(':')[1]);
-      if(window._editingRecipe) window._editingRecipe.ingredients[idx].productId = '';
-    } else if(ctx==='addlist'){
-      delete e.target.dataset.selectedId;
-    }
-    showProdPickerList(ctx, e.target.value);
+// Removes the topmost modal overlay and cleans up associated editing state.
+// fromPopstate=true means the browser already navigated back (hardware/gesture
+// back button) — don't call history.back() again in that case.
+function dismissTopModal(fromPopstate){
+  const overlays = document.querySelectorAll('.modal-overlay');
+  if(overlays.length===0) return;
+  const top = overlays[overlays.length-1];
+  const isRecipeModal = !!top.querySelector('#recipe-form');
+  const isProductModal = !!top.querySelector('#f-pname');
+  const isStoresManager = !!top.querySelector('#stores-list');
+  top.remove();
+  if(isRecipeModal){
+    window._editingRecipe=null;
+    if(currentTab==='plats') updatePlatsList();
+  }
+  if(isProductModal) window._editingProduct=null;
+  if(isStoresManager) refreshProductStoreSelect();
+  window._pendingPickerContext=null;
+  if(modalHistoryDepth>0){
+    modalHistoryDepth--;
+    if(!fromPopstate) history.back();
+  }
+}
+function closeModal(){ document.querySelectorAll('.modal-overlay').forEach(o=>o.remove()); }
+function popModalHistory(){
+  if(modalHistoryDepth>0){ modalHistoryDepth--; history.back(); }
+}
+
+window.addEventListener('popstate', ()=>{
+  if(document.querySelector('.modal-overlay')) dismissTopModal(true);
+});
+
+// Picker interactions (search dropdowns for products) are delegated globally
+// on document.body so they work both inside modals and in plain tab content
+// (e.g. the Courses tab's product finder), with one shared implementation.
+document.body.addEventListener('click', (e)=>{
+  const pickerInput = e.target.closest('.prod-picker-input');
+  if(pickerInput){
+    hideAllProdPickerLists();
+    showProdPickerList(pickerInput.getAttribute('data-picker-context'), pickerInput.value);
     return;
   }
+  if(!e.target.closest('.prod-picker')){
+    hideAllProdPickerLists();
+  }
+});
+document.body.addEventListener('input', (e)=>{
+  if(!e.target.matches('.prod-picker-input')) return;
+  const ctx = e.target.getAttribute('data-picker-context');
+  if(ctx.indexOf('ing:')===0){
+    const idx = parseInt(ctx.split(':')[1]);
+    if(window._editingRecipe) window._editingRecipe.ingredients[idx].productId = '';
+  } else if(ctx==='addlist'){
+    delete e.target.dataset.selectedId;
+  }
+  showProdPickerList(ctx, e.target.value);
+});
+// Selecting a picker suggestion must fire before the on-screen keyboard's
+// dismissal swallows the tap — mousedown/touchstart fire earlier than click.
+function handlePickerSelect(e){
+  const pickOpt = e.target.closest('.prod-pick-option:not(.no-match)');
+  if(pickOpt){
+    e.preventDefault();
+    const ctx = pickOpt.getAttribute('data-picker-context');
+    const product = findProduct(pickOpt.getAttribute('data-product-id'));
+    applyProductPickerSelection(ctx, product);
+    hideAllProdPickerLists();
+    return;
+  }
+  const pickNew = e.target.closest('.prod-pick-new[data-picker-context]');
+  if(pickNew){
+    e.preventDefault();
+    const ctx = pickNew.getAttribute('data-picker-context');
+    const inputEl = document.querySelector(`.prod-picker-input[data-picker-context="${ctx}"]`);
+    const typed = inputEl ? inputEl.value.trim() : '';
+    window._pendingPickerContext = ctx;
+    hideAllProdPickerLists();
+    showModal(productFormModal(null, typed));
+    return;
+  }
+  const quickAddProduct = e.target.closest('[data-quick-add-product]');
+  if(quickAddProduct){
+    e.preventDefault();
+    showModal(productFormModal(null, productSearchQuery.trim()));
+    return;
+  }
+  const quickAddRecipe = e.target.closest('[data-quick-add-recipe]');
+  if(quickAddRecipe){
+    e.preventDefault();
+    recipeDetailModal(null, platsSearchQuery.trim());
+  }
+}
+document.body.addEventListener('mousedown', handlePickerSelect);
+document.body.addEventListener('touchstart', handlePickerSelect, {passive:false});
+
+function modalInputHandler(e){
   const r = window._editingRecipe;
   if(e.target.id==='f-pname' && window._editingProduct){ window._editingProduct.name = e.target.value; return; }
   if(!r) return;
@@ -1172,28 +1231,8 @@ function resizeImage(file, maxDim, quality){
 function modalClickHandler(e){
   const overlay = e.currentTarget;
 
-  const pickerInput = e.target.closest('.prod-picker-input');
-  if(pickerInput){
-    hideAllProdPickerLists();
-    showProdPickerList(pickerInput.getAttribute('data-picker-context'), pickerInput.value);
-    return;
-  }
-  if(!e.target.closest('.prod-picker')){
-    hideAllProdPickerLists();
-  }
-
   if(e.target.hasAttribute('data-overlay') || e.target.closest('[data-close-modal]')){
-    const isRecipeModal = !!overlay.querySelector('#recipe-form');
-    const isProductModal = !!overlay.querySelector('#f-pname');
-    const isStoresManager = !!overlay.querySelector('#stores-list');
-    overlay.remove();
-    if(isRecipeModal){
-      window._editingRecipe=null;
-      if(currentTab==='plats') updatePlatsList();
-    }
-    if(isProductModal) window._editingProduct=null;
-    if(isStoresManager) refreshProductStoreSelect();
-    window._pendingPickerContext=null;
+    dismissTopModal(false);
     return;
   }
   if(e.target.closest('[data-add-ing]')){
@@ -1254,7 +1293,7 @@ function modalClickHandler(e){
   }
   const saveRecipeBtn = e.target.closest('[data-save-recipe]');
   if(saveRecipeBtn){
-    withLoading(saveRecipeBtn, ()=>saveRecipeFromForm()).then(()=>{ overlay.remove(); render(); });
+    withLoading(saveRecipeBtn, ()=>saveRecipeFromForm()).then(()=>{ overlay.remove(); popModalHistory(); render(); });
     return;
   }
   const delR = e.target.closest('[data-delete-recipe]');
@@ -1262,7 +1301,7 @@ function modalClickHandler(e){
     const id = delR.getAttribute('data-delete-recipe');
     if(confirm('Supprimer ce plat ?')){
       state.recipes = state.recipes.filter(r=>r.id!==id);
-      withLoading(delR, ()=>safeSet('recipes', state.recipes)).then(()=>{ overlay.remove(); render(); });
+      withLoading(delR, ()=>safeSet('recipes', state.recipes)).then(()=>{ overlay.remove(); popModalHistory(); render(); });
     }
     return;
   }
@@ -1271,6 +1310,7 @@ function modalClickHandler(e){
     withLoading(saveProdBtn, ()=>saveProductFromForm()).then((savedProduct)=>{
       if(!savedProduct) return;
       overlay.remove();
+      popModalHistory();
       if(window._pendingPickerContext){
         applyProductPickerSelection(window._pendingPickerContext, savedProduct);
         window._pendingPickerContext = null;
@@ -1285,7 +1325,7 @@ function modalClickHandler(e){
     const id = delP.getAttribute('data-delete-product');
     if(confirm('Supprimer ce produit ?')){
       state.products = state.products.filter(p=>p.id!==id);
-      withLoading(delP, ()=>safeSet('products', state.products)).then(()=>{ overlay.remove(); render(); });
+      withLoading(delP, ()=>safeSet('products', state.products)).then(()=>{ overlay.remove(); popModalHistory(); render(); });
     }
     return;
   }
@@ -1413,7 +1453,7 @@ function confirmAddProductToList(overlay, btnParam){
   if(existing) existing.qty += qty;
   else state.shoppingList.checklist.push({ id: uid(), productId:p.id, qty, unit, checked:false });
   withLoading(btnParam, ()=>Promise.all([safeSet('products', state.products), safeSet('shopping_list', state.shoppingList)])).then(()=>{
-    overlay.remove(); render();
+    overlay.remove(); popModalHistory(); render();
   });
 }
 
@@ -1425,7 +1465,7 @@ function confirmAddSpecificProduct(overlay, btnParam){
   if(existing) existing.qty += qty;
   else state.shoppingList.checklist.push({ id: uid(), productId:id, qty, unit, checked:false });
   withLoading(btnParam, ()=>safeSet('shopping_list', state.shoppingList)).then(()=>{
-    overlay.remove(); showToast('Ajouté à la liste de courses'); render();
+    overlay.remove(); popModalHistory(); showToast('Ajouté à la liste de courses'); render();
   });
 }
 
@@ -1481,10 +1521,6 @@ function attachHandlers(){
   const addToListBtn = app.querySelector('[data-add-to-list]');
   if(addToListBtn) addToListBtn.addEventListener('click', ()=>showModal(addToListModal()));
   attachCoursesListHandlers(document.getElementById('courses-list-container'));
-  const coursesSearchInput = app.querySelector('#courses-search');
-  if(coursesSearchInput){
-    coursesSearchInput.addEventListener('input', (e)=>{ coursesSearchQuery = e.target.value; updateCoursesList(); });
-  }
 }
 
 function escapeHtml(s){
@@ -1497,7 +1533,6 @@ document.querySelectorAll('.tab').forEach(t=>{
     currentTab = t.dataset.tab;
     productSearchQuery = '';
     platsSearchQuery = '';
-    coursesSearchQuery = '';
     history.replaceState(null, '', '#'+currentTab);
     render();
   });
