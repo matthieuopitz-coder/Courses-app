@@ -327,9 +327,9 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.28";
+const APP_VERSION = "V1.29";
 const UNITS = [
-  {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'}
+  {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'},{v:'cas',l:'c. à s.'}
 ];
 const unitLabel = v => (UNITS.find(u=>u.v===v)||{l:v}).l;
 const uid = () => Math.random().toString(36).slice(2,10);
@@ -653,6 +653,23 @@ function productAddToListModal(product){
   </div>`;
 }
 
+function unsavedChangesModal(context){
+  window._unsavedPromptContext = context;
+  const message = context==='send'
+    ? "Ce plat n'est pas encore enregistré. Tu veux l'enregistrer avant de l'envoyer dans la liste de courses ?"
+    : "Ce plat n'est pas encore enregistré. Si tu fermes maintenant, tes modifications seront perdues.";
+  const discardLabel = context==='send' ? 'Envoyer sans enregistrer' : 'Fermer sans enregistrer';
+  return `<div class="modal-overlay" data-overlay>
+    <div class="modal">
+      <div class="modal-head"><h2>Enregistrer ce plat ?</h2><button class="modal-close" data-close-modal>✕</button></div>
+      <p class="subtle" style="margin-bottom:18px;line-height:1.5;">${message}</p>
+      <button class="btn btn-primary btn-block" data-unsaved-save style="margin-bottom:10px;">Enregistrer</button>
+      <button class="btn btn-soft-danger btn-block" data-unsaved-discard style="margin-bottom:10px;">${discardLabel}</button>
+      <button class="btn btn-ghost btn-block" data-close-modal>Continuer à modifier</button>
+    </div>
+  </div>`;
+}
+
 function storesManagerModal(){
   return `<div class="modal-overlay" data-overlay>
     <div class="modal">
@@ -706,6 +723,23 @@ let photoCache = {};
 let photoCacheLoading = {};
 const MAX_PHOTOS = 5;
 
+function snapshotRecipeState(r){
+  return JSON.stringify({
+    name: r.name, baseServings: r.baseServings, steps: r.steps,
+    ingredients: r.ingredients.filter(i=>i.productId).map(i=>({productId:i.productId, qty:i.qty, unit:i.unit})),
+    photoCount: (window._recipePhotos||[]).length
+  });
+}
+function updateEditingSnapshot(){
+  const r = window._editingRecipe;
+  if(!r) return;
+  window._editingRecipeSnapshot = snapshotRecipeState(r);
+}
+function recipeHasUnsavedChanges(){
+  const r = window._editingRecipe;
+  if(!r || !window._editingRecipeSnapshot) return false;
+  return snapshotRecipeState(r) !== window._editingRecipeSnapshot;
+}
 function recipeInShoppingList(r){
   return state.shoppingList.checklist.some(it=>it.sourceRecipeId===r.id && !it.checked);
 }
@@ -836,6 +870,7 @@ async function recipeDetailModal(recipeOrNull, prefillName){
     const zone = document.getElementById('photo-zone-inner');
     if(zone) zone.outerHTML = photoZoneHtml();
   }
+  updateEditingSnapshot();
 }
 
 function photoZoneHtml(){
@@ -1084,11 +1119,20 @@ function showModalNow(html){
 // Removes the topmost modal overlay and cleans up associated editing state.
 // fromPopstate=true means the browser already navigated back (hardware/gesture
 // back button) — don't call history.back() again in that case.
-function dismissTopModal(fromPopstate){
+function dismissTopModal(fromPopstate, forceDiscard){
   const overlays = document.querySelectorAll('.modal-overlay');
   if(overlays.length===0) return;
   const top = overlays[overlays.length-1];
   const isRecipeModal = !!top.querySelector('#recipe-form');
+  if(!forceDiscard && isRecipeModal && recipeHasUnsavedChanges()){
+    if(fromPopstate){
+      // the browser already consumed one history entry for this modal;
+      // restore it since we're intercepting the close (showModal below adds its own for the prompt).
+      history.pushState({modalDepth: modalHistoryDepth}, '', location.href);
+    }
+    showModal(unsavedChangesModal('close'));
+    return;
+  }
   const isProductModal = !!top.querySelector('#f-pname');
   const isStoresManager = !!top.querySelector('#stores-list');
   top.remove();
@@ -1298,12 +1342,35 @@ function modalClickHandler(e){
   if(cartBtnEl){
     const action = cartBtnEl.getAttribute('data-cart-action');
     if(action==='remove') removeRecipeFromCart(cartBtnEl);
+    else if(recipeHasUnsavedChanges()) showModal(unsavedChangesModal('send'));
     else sendRecipeToCart(cartBtnEl);
+    return;
+  }
+  const unsavedSaveBtn = e.target.closest('[data-unsaved-save]');
+  if(unsavedSaveBtn){
+    const ctx = window._unsavedPromptContext;
+    withLoading(unsavedSaveBtn, async ()=>{
+      if(ctx==='send') await sendRecipeToCart();
+      await saveRecipeFromForm();
+      updateEditingSnapshot();
+    }).then(()=>{
+      overlay.remove(); popModalHistory();
+      if(ctx==='close'){ dismissTopModal(false); render(); }
+      else { refreshCartButton(); }
+    });
+    return;
+  }
+  const unsavedDiscardBtn = e.target.closest('[data-unsaved-discard]');
+  if(unsavedDiscardBtn){
+    const ctx = window._unsavedPromptContext;
+    overlay.remove(); popModalHistory();
+    if(ctx==='send') sendRecipeToCart();
+    else { dismissTopModal(false, true); render(); }
     return;
   }
   const saveRecipeBtn = e.target.closest('[data-save-recipe]');
   if(saveRecipeBtn){
-    withLoading(saveRecipeBtn, ()=>saveRecipeFromForm()).then(()=>{ overlay.remove(); popModalHistory(); render(); });
+    withLoading(saveRecipeBtn, ()=>saveRecipeFromForm()).then(()=>{ window._editingRecipe=null; overlay.remove(); popModalHistory(); render(); });
     return;
   }
   const delR = e.target.closest('[data-delete-recipe]');
@@ -1405,7 +1472,6 @@ async function saveRecipeFromForm(){
 
   const tasks = [safeSet('recipes', state.recipes), safeSet('photo:'+r.id, photos)];
   await Promise.all(tasks);
-  window._editingRecipe = null;
 }
 
 async function sendRecipeToCart(btnParam){
