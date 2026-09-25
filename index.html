@@ -97,6 +97,7 @@
   .recipe-card h3{font-size:19px;color:var(--ink);}
   .recipe-card .rc-meta{font-size:14px;color:var(--muted);margin-top:3px;}
   .recipe-card .rc-chevron{color:var(--muted);font-size:20px;}
+  .rc-delete{background:none;border:none;color:var(--accent);font-size:17px;cursor:pointer;padding:6px;flex-shrink:0;}
   .recipe-card:active{background:#FAF8F3;}
 
   .product-row{
@@ -327,7 +328,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.30";
+const APP_VERSION = "V1.31";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'},{v:'cas',l:'c. à s.'}
 ];
@@ -792,8 +793,9 @@ function renderPlatsListInner(){
       </div>
       <div class="rc-main">
         <h3>${escapeHtml(r.name)}</h3>
-        ${sent ? `<div class="rc-meta">${r.ingredients.length} ingrédient${r.ingredients.length>1?'s':''} · pour ${recipeSentServings(r) || r.baseServings} pers.</div>` : ''}
+        ${sent ? `<div class="rc-meta">${(r.ingredients||[]).length} ingrédient${(r.ingredients||[]).length>1?'s':''} · pour ${recipeSentServings(r) || r.baseServings} pers.</div>` : ''}
       </div>
+      <button class="rc-delete" data-delete-recipe-direct="${r.id}" title="Supprimer ce plat">🗑</button>
       <div class="rc-chevron">›</div>
     </div>`;
   });
@@ -809,6 +811,17 @@ function attachPlatsRowHandlers(container){
     el.addEventListener('click', ()=>{
       const r = state.recipes.find(x=>x.id===el.getAttribute('data-open-recipe'));
       recipeDetailModal(r);
+    });
+  });
+  container.querySelectorAll('[data-delete-recipe-direct]').forEach(el=>{
+    el.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const id = el.getAttribute('data-delete-recipe-direct');
+      const r = state.recipes.find(x=>x.id===id);
+      if(!confirm(`Supprimer "${r?r.name:'ce plat'}" ?`)) return;
+      state.recipes = state.recipes.filter(x=>x.id!==id);
+      await withLoading(el, ()=>safeSet('recipes', state.recipes));
+      updatePlatsList();
     });
   });
 }
@@ -850,6 +863,29 @@ function renderPlatsTab(){
 async function recipeDetailModal(recipeOrNull, prefillName){
   const isEdit = !!recipeOrNull;
   const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:prefillName||'', baseServings:2, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', photoCount:0 };
+  // Defensive repair: never let malformed saved data (missing/invalid fields) prevent opening.
+  if(!Array.isArray(r.ingredients) || r.ingredients.length===0){
+    r.ingredients = [{id:uid(),productId:'',qty:1,unit:'nombre'}];
+  } else {
+    r.ingredients = r.ingredients.map(ing=>({
+      id: ing && ing.id ? ing.id : uid(),
+      productId: (ing && ing.productId) || '',
+      qty: (ing && typeof ing.qty === 'number') ? ing.qty : (parseFloat(ing && ing.qty) || 1),
+      unit: (ing && ing.unit) || 'nombre'
+    }));
+  }
+  if(typeof r.baseServings !== 'number' || !r.baseServings || r.baseServings<1){
+    r.baseServings = parseFloat(r.baseServings) || 2;
+  }
+  if(typeof r.name !== 'string') r.name = '';
+  try{
+    await openRecipeDetailModalInner(r, isEdit);
+  }catch(err){
+    console.error('recipeDetailModal failed to open', err);
+    alert("Ce plat n'a pas pu s'ouvrir à cause d'une donnée invalide. Tu peux le supprimer directement depuis la liste avec le bouton 🗑 qui apparaît maintenant sur chaque carte.");
+  }
+}
+async function openRecipeDetailModalInner(r, isEdit){
   window._editingRecipe = r;
   window._showSteps = false;
   window._recipePhotos = [];
