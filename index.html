@@ -97,7 +97,6 @@
   .recipe-card h3{font-size:19px;color:var(--ink);}
   .recipe-card .rc-meta{font-size:14px;color:var(--muted);margin-top:3px;}
   .recipe-card .rc-chevron{color:var(--muted);font-size:20px;}
-  .rc-delete{background:none;border:none;color:var(--accent);font-size:17px;cursor:pointer;padding:6px;flex-shrink:0;}
   .recipe-card:active{background:#FAF8F3;}
 
   .product-row{
@@ -328,7 +327,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V1.31";
+const APP_VERSION = "V2.01";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'},{v:'cas',l:'c. à s.'}
 ];
@@ -349,13 +348,21 @@ function fbPath(key){
   return key;
 }
 
+// A stalled network request (no response, no error) must never hang forever,
+// or the app would stay stuck on "Chargement…" indefinitely.
+function fetchWithTimeout(url, options, timeoutMs=8000){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), timeoutMs);
+  return fetch(url, {...(options||{}), signal: controller.signal}).finally(()=>clearTimeout(timer));
+}
+
 // Retries a few times before giving up, since a transient network hiccup
 // must never be silently treated as "no data" (that risks overwriting real data later).
 async function safeGet(key, retries=2){
   const path = fbPath(key);
   for(let attempt=0; attempt<=retries; attempt++){
     try{
-      const res = await fetch(`${FIREBASE_URL}/${path}.json`);
+      const res = await fetchWithTimeout(`${FIREBASE_URL}/${path}.json`);
       if(!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
       return (data === null || data === undefined) ? null : data;
@@ -370,7 +377,7 @@ async function safeSet(key, val, retries=2){
   const path = fbPath(key);
   for(let attempt=0; attempt<=retries; attempt++){
     try{
-      const res = await fetch(`${FIREBASE_URL}/${path}.json`, {
+      const res = await fetchWithTimeout(`${FIREBASE_URL}/${path}.json`, {
         method: 'PUT',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(val)
@@ -795,7 +802,6 @@ function renderPlatsListInner(){
         <h3>${escapeHtml(r.name)}</h3>
         ${sent ? `<div class="rc-meta">${(r.ingredients||[]).length} ingrédient${(r.ingredients||[]).length>1?'s':''} · pour ${recipeSentServings(r) || r.baseServings} pers.</div>` : ''}
       </div>
-      <button class="rc-delete" data-delete-recipe-direct="${r.id}" title="Supprimer ce plat">🗑</button>
       <div class="rc-chevron">›</div>
     </div>`;
   });
@@ -808,20 +814,33 @@ function renderPlatsListInner(){
 function attachPlatsRowHandlers(container){
   if(!container) return;
   container.querySelectorAll('[data-open-recipe]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const r = state.recipes.find(x=>x.id===el.getAttribute('data-open-recipe'));
-      recipeDetailModal(r);
-    });
-  });
-  container.querySelectorAll('[data-delete-recipe-direct]').forEach(el=>{
-    el.addEventListener('click', async (e)=>{
-      e.stopPropagation();
-      const id = el.getAttribute('data-delete-recipe-direct');
+    const id = el.getAttribute('data-open-recipe');
+    let pressTimer = null;
+    let longPressed = false;
+    const clearTimer = ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
+    const startPress = ()=>{
+      longPressed = false;
+      clearTimer();
+      pressTimer = setTimeout(async ()=>{
+        longPressed = true;
+        const r = state.recipes.find(x=>x.id===id);
+        if(!confirm(`Supprimer "${r?r.name:'ce plat'}" ?`)) return;
+        state.recipes = state.recipes.filter(x=>x.id!==id);
+        await safeSet('recipes', state.recipes);
+        updatePlatsList();
+      }, 550);
+    };
+    el.addEventListener('touchstart', startPress, {passive:true});
+    el.addEventListener('touchend', clearTimer);
+    el.addEventListener('touchmove', clearTimer);
+    el.addEventListener('touchcancel', clearTimer);
+    el.addEventListener('mousedown', startPress);
+    el.addEventListener('mouseup', clearTimer);
+    el.addEventListener('mouseleave', clearTimer);
+    el.addEventListener('click', (e)=>{
+      if(longPressed){ e.preventDefault(); e.stopPropagation(); longPressed=false; return; }
       const r = state.recipes.find(x=>x.id===id);
-      if(!confirm(`Supprimer "${r?r.name:'ce plat'}" ?`)) return;
-      state.recipes = state.recipes.filter(x=>x.id!==id);
-      await withLoading(el, ()=>safeSet('recipes', state.recipes));
-      updatePlatsList();
+      recipeDetailModal(r);
     });
   });
 }
