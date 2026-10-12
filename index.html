@@ -327,7 +327,7 @@
 </div>
 
 <script>
-const APP_VERSION = "V2.01";
+const APP_VERSION = "V2.02";
 const UNITS = [
   {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'},{v:'cas',l:'c. à s.'}
 ];
@@ -585,6 +585,10 @@ function productPickerListHtml(query, ctx){
   const matches = filterProductsByQuery(query).slice(0, 40);
   let html = matches.map(p=>`<div class="prod-pick-option" data-picker-context="${ctx}" data-product-id="${p.id}">${escapeHtml(p.name)}</div>`).join('');
   if(matches.length===0) html += `<div class="subtle" style="padding:10px 12px;">Aucun produit trouvé.</div>`;
+  const typedQ = (query||'').trim();
+  if(ctx==='courses-search' && typedQ){
+    html += `<div class="prod-pick-new prod-pick-custom" data-custom-name="${escapeHtml(typedQ)}">+ Ajouter "${escapeHtml(typedQ)}" à la liste de courses (ponctuel)</div>`;
+  }
   html += `<div class="prod-pick-new" data-picker-context="${ctx}">+ Ajouter un nouveau produit à la liste de produits</div>`;
   return html;
 }
@@ -647,6 +651,7 @@ function productFormModal(product, prefillName){
 
 function productAddToListModal(product){
   window._addingProductId = product.id;
+  window._addingCustomName = null;
   return `<div class="modal-overlay" data-overlay>
     <div class="modal">
       <div class="modal-head"><h2>${escapeHtml(product.name)}</h2><button class="modal-close" data-close-modal>✕</button></div>
@@ -659,6 +664,13 @@ function productAddToListModal(product){
       <button class="btn btn-primary btn-block" data-confirm-add-specific>Ajouter à la liste</button>
     </div>
   </div>`;
+}
+
+function customItemAddModal(name){
+  const m = productAddToListModal({id:'', name});
+  window._addingProductId = null;
+  window._addingCustomName = name;
+  return m;
 }
 
 function unsavedChangesModal(context){
@@ -1011,7 +1023,7 @@ function renderCoursesListInner(){
   const byStore = {};
   state.shoppingList.checklist.forEach(item=>{
     const product = findProduct(item.productId);
-    const name = product ? product.name : '(produit supprimé)';
+    const name = product ? product.name : (item.customName || '(produit supprimé)');
     const sid = (product && product.storeId) ? product.storeId : '_none';
     if(!byStore[sid]) byStore[sid]=[];
     byStore[sid].push({...item, productName: name});
@@ -1247,6 +1259,16 @@ function handlePickerSelect(e){
     const product = findProduct(pickOpt.getAttribute('data-product-id'));
     applyProductPickerSelection(ctx, product);
     hideAllProdPickerLists();
+    return;
+  }
+  const pickCustom = e.target.closest('.prod-pick-custom[data-custom-name]');
+  if(pickCustom){
+    e.preventDefault();
+    const name = pickCustom.getAttribute('data-custom-name');
+    const input = document.getElementById('courses-search');
+    if(input) input.value = '';
+    hideAllProdPickerLists();
+    showModal(customItemAddModal(name));
     return;
   }
   const pickNew = e.target.closest('.prod-pick-new[data-picker-context]');
@@ -1592,10 +1614,19 @@ function confirmAddSpecificProduct(overlay, btnParam){
   const id = window._addingProductId;
   const qty = parseFloat(document.getElementById('qty-for-product').value)||0;
   const unit = document.getElementById('unit-for-product').value;
-  const existing = state.shoppingList.checklist.find(it=>it.productId===id && it.unit===unit);
-  if(existing) existing.qty += qty;
-  else state.shoppingList.checklist.push({ id: uid(), productId:id, qty, unit, checked:false });
+  const custom = window._addingCustomName;
+  if(custom){
+    const key = normalizeSearch(custom.trim());
+    const ex = state.shoppingList.checklist.find(it=>!it.productId && it.customName && normalizeSearch(it.customName)===key && it.unit===unit && !it.checked);
+    if(ex) ex.qty += qty;
+    else state.shoppingList.checklist.push({ id: uid(), productId:'', customName:custom.trim(), qty, unit, checked:false });
+  } else {
+    const existing = state.shoppingList.checklist.find(it=>it.productId===id && it.unit===unit);
+    if(existing) existing.qty += qty;
+    else state.shoppingList.checklist.push({ id: uid(), productId:id, qty, unit, checked:false });
+  }
   withLoading(btnParam, ()=>safeSet('shopping_list', state.shoppingList)).then(()=>{
+    window._addingCustomName = null;
     overlay.remove(); popModalHistory(); showToast('Ajouté à la liste de courses'); render();
   });
 }
