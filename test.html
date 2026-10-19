@@ -1,0 +1,1879 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Panier &amp; Fourneaux (test)</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="theme-color" content="#2F4A3C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Courses">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F1EEE2;
+    --surface:#FFFFFF;
+    --ink:#24312A;
+    --ink-soft:#4B594F;
+    --primary:#2F4A3C;
+    --primary-dark:#1F332A;
+    --accent:#C1442E;
+    --accent-soft:#E8CFC7;
+    --muted:#8A9089;
+    --line:#DAD4C4;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  button{-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    padding-bottom:92px;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  #app{max-width:520px;margin:0 auto;padding:20px 16px 8px;min-height:calc(100vh - 92px);display:flex;flex-direction:column;}
+  .header{
+    display:flex;align-items:baseline;justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .header h1{font-size:33.5px;color:var(--primary-dark);}
+  .header .tag{
+    font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--muted);font-weight:600;
+  }
+  .header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+  .link-btn{
+    background:none;border:none;color:var(--primary);font-weight:600;
+    font-size:14.5px;cursor:pointer;padding:4px 0;
+  }
+  .empty{text-align:center;padding:48px 20px;color:var(--ink-soft);}
+  .empty .em-icon{font-size:38px;margin-bottom:10px;opacity:.6;}
+  .empty p{margin:4px 0;font-size:15.5px;line-height:1.5;}
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);padding:16px;margin-bottom:12px;
+  }
+  .recipe-card{display:flex;align-items:center;gap:12px;cursor:pointer;position:relative;}
+  .recipe-card.in-cart{border-color:#8FB89B;border-width:2px;}
+  .recipe-card .rc-thumb{
+    width:46px;height:46px;border-radius:10px;background:var(--accent-soft);overflow:hidden;
+    display:flex;align-items:center;justify-content:center;font-size:21.5px;flex-shrink:0;
+    position:relative;
+  }
+  .rc-cart-badge{
+    position:absolute;top:-9px;left:-9px;width:24px;height:24px;border-radius:50%;
+    background:var(--primary);border:2px solid var(--surface);
+    display:flex;align-items:center;justify-content:center;z-index:2;
+  }
+  .search-row{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+  .search-row .search-input{margin-bottom:0;flex:1;min-width:0;}
+  .fab-inline{
+    width:44px;height:44px;border-radius:50%;flex-shrink:0;border:none;cursor:pointer;
+    background:#3E6350;color:#fff;font-size:24px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 8px rgba(62,99,80,.35);
+  }
+  .search-input{
+    width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:20px;
+    font-family:'Inter',sans-serif;font-size:16px;background:var(--surface);color:var(--ink);
+    margin-bottom:14px;
+  }
+  .search-input:focus{outline:2px solid var(--primary);outline-offset:1px;}
+  .recipe-card .rc-main{flex:1;min-width:0;}
+  .recipe-card h3{font-size:19px;color:var(--ink);}
+  .recipe-card .rc-meta{font-size:14px;color:var(--muted);margin-top:3px;}
+  .recipe-card .rc-chevron{color:var(--muted);font-size:20px;}
+  .recipe-card:active{background:#FAF8F3;}
+
+  .product-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer;
+  }
+  .product-row:last-child{border-bottom:none;}
+  .product-row .pr-name{font-size:17px;font-weight:500;}
+  .product-row .pr-store{
+    font-size:13px;color:var(--muted);background:#FAF8F3;border:1px solid var(--line);
+    border-radius:20px;padding:3px 10px;
+  }
+  .product-row .pr-store.none{opacity:.6;font-style:italic;}
+  .product-row.in-list{
+    background:#E1EEE3;margin-left:-12px;margin-right:-12px;
+    padding-left:12px;padding-right:12px;border-radius:8px;
+  }
+  .product-row .pr-right{display:flex;align-items:center;gap:8px;}
+  .pr-edit{
+    background:none;border:none;color:var(--muted);font-size:17px;cursor:pointer;
+    padding:4px 6px;flex-shrink:0;
+  }
+
+  .btn{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:16px;
+    border:none;border-radius:10px;padding:12px 16px;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-primary:active{background:var(--primary-dark);}
+  .btn-accent{background:var(--accent);color:#fff;}
+  .btn-ghost{background:transparent;color:var(--primary);border:1px solid var(--line);}
+  .btn-soft-primary{background:#DCEADF;color:var(--primary-dark);border:1px solid #C3DBC9;}
+  .btn-soft-danger{background:#F3D9D2;color:#9A3420;border:1px solid #E6BDB0;}
+  .btn-danger{background:transparent;color:var(--accent);}
+  .btn-block{width:100%;}
+  .btn-sm{padding:8px 12px;font-size:14.5px;}
+  .fab{
+    position:fixed;bottom:104px;right:18px;width:65px;height:65px;border-radius:50%;
+    background:#3E6350;color:#fff;font-size:34.5px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 16px rgba(62,99,80,.4);border:none;cursor:pointer;z-index:20;
+  }
+
+  .tabbar{
+    position:fixed;bottom:0;left:0;right:0;background:var(--primary-dark);
+    display:flex;padding:10px 6px calc(14px + env(safe-area-inset-bottom));z-index:30;
+  }
+  .tab{
+    flex:1;background:none;border:none;color:#B9C4BB;
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:9px 0;cursor:pointer;border-radius:10px;
+  }
+  .tab .ic{font-size:23px;}
+  .tab.active{color:#fff;background:rgba(255,255,255,0.08);}
+
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block;font-size:14px;font-weight:600;color:var(--ink-soft);
+    margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;
+  }
+  .field input[type=text],.field input[type=number],.field select,.field textarea{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;
+    font-family:'Inter',sans-serif;font-size:17px;background:#FCFBF8;color:var(--ink);
+  }
+  .field textarea{min-height:90px;resize:vertical;font-family:'Inter',sans-serif;}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--primary);outline-offset:1px;}
+  .row2{display:flex;gap:8px;}
+  .row2 > *{flex:1;}
+
+  .ing-row{display:grid;grid-template-columns:1.7fr .8fr .8fr auto;gap:6px;margin-bottom:8px;align-items:center;}
+  .prod-picker{position:relative;}
+  .prod-picker-list{
+    display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:40;
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    max-height:230px;overflow-y:auto;box-shadow:0 10px 24px rgba(0,0,0,.15);
+  }
+  .prod-pick-option{padding:11px 13px;font-size:14.5px;cursor:pointer;border-bottom:1px solid var(--line);}
+  .prod-pick-option:last-child{border-bottom:none;}
+  .prod-pick-option:active{background:#FAF8F3;}
+  .prod-pick-new{
+    padding:11px 13px;font-size:14.5px;font-weight:600;color:var(--primary);
+    cursor:pointer;border-top:1px dashed var(--line);background:#FAF8F3;
+  }
+  .inline-picker-list{
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  }
+  .prod-pick-option.no-match{cursor:default;color:var(--muted);}
+  .prod-pick-option.no-match:active{background:transparent;}
+  .ing-row input,.ing-row select{
+    padding:9px 8px;border:1px solid var(--line);border-radius:8px;
+    font-size:15px;background:#FCFBF8;color:var(--ink);width:100%;
+  }
+  .ing-remove{background:none;border:none;color:var(--accent);font-size:22.5px;cursor:pointer;padding:4px;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(36,49,42,.55);z-index:50;display:flex;align-items:flex-end;}
+  .modal{
+    background:var(--bg);width:100%;max-height:92vh;overflow-y:auto;
+    border-radius:20px 20px 0 0;padding:20px 16px calc(24px + env(safe-area-inset-bottom));
+    animation:slideup .22s ease-out;
+  }
+  @keyframes slideup{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .modal-head h2{font-size:22.5px;color:var(--primary-dark);}
+  .modal-close{background:none;border:none;font-size:24.5px;color:var(--muted);cursor:pointer;padding:2px 6px;}
+  .divider{border:none;border-top:1px dashed var(--line);margin:16px 0;}
+  .toggle-steps{display:block;background:none;border:none;color:var(--primary);font-weight:600;font-size:17.5px;cursor:pointer;padding:6px 0;}
+
+  .store-chip{
+    display:inline-flex;align-items:center;gap:8px;background:var(--surface);
+    border:1px solid var(--line);border-radius:20px;padding:8px 14px;margin:0 8px 8px 0;
+    font-size:15.5px;font-weight:500;
+  }
+  .store-chip button{background:none;border:none;color:var(--accent);font-size:17px;cursor:pointer;padding:0;}
+  .store-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 4px;border-bottom:1px solid var(--line);
+  }
+  .store-row:last-child{border-bottom:none;}
+  .store-row-name{font-size:15.5px;font-weight:500;}
+  .store-row-actions{display:flex;align-items:center;gap:4px;}
+  .store-rename-input{
+    flex:1;padding:7px 9px;border:1px solid var(--primary);border-radius:8px;
+    font-size:15.5px;font-family:'Inter',sans-serif;background:#FCFBF8;color:var(--ink);margin-right:8px;
+  }
+
+  .sel-row{display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-bottom:1px solid var(--line);gap:10px;}
+  .sel-row:last-child{border-bottom:none;}
+  .checkbox{
+    width:22px;height:22px;border-radius:6px;border:2px solid var(--muted);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:15.5px;
+  }
+  .checkbox.checked{background:var(--primary);border-color:var(--primary);}
+
+  .ticket{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:0 0 6px;margin-bottom:16px;overflow:hidden;}
+  .ticket-store{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#FAF8F3;border-bottom:1px dashed var(--line);}
+  .ticket-store .stamp{
+    font-family:'Fraunces',serif;font-weight:700;font-size:17px;color:var(--accent);
+    border:1.5px solid var(--accent);border-radius:6px;padding:3px 10px;transform:rotate(-2deg);
+    text-transform:uppercase;letter-spacing:.03em;
+  }
+  .ticket-store .count{font-size:13.5px;color:var(--muted);}
+  .ticket-item{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px dotted var(--line);}
+  .ticket-item:last-child{border-bottom:none;}
+  .ticket-item .ti-name{flex:1;font-size:16px;}
+  .ticket-item.done .ti-name{text-decoration:line-through;color:var(--muted);}
+  .ticket-item .ti-qty{font-variant-numeric:tabular-nums;font-size:15px;color:var(--ink-soft);font-weight:600;}
+  .item-remove{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 2px;flex-shrink:0;}
+
+  .section-title{font-size:14.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin:20px 0 8px 2px;}
+  .subtle{font-size:14.5px;color:var(--muted);}
+  .loading{text-align:center;padding:40px;color:var(--muted);font-size:15.5px;}
+
+  .photo-add-btn{
+    display:flex;width:max-content;align-items:center;gap:7px;background:var(--surface);
+    border:1px solid var(--line);border-radius:20px;padding:9px 16px;
+    font-family:'Inter',sans-serif;font-size:15px;font-weight:600;color:var(--primary);
+    cursor:pointer;margin-bottom:16px;
+  }
+  .photo-add-btn .ic{font-size:18px;}
+  .photo-zone{
+    width:100%;max-height:200px;aspect-ratio:16/10;border-radius:12px;overflow:hidden;
+    background:#E9E4D6;
+    margin-bottom:16px;position:relative;border:1px solid var(--line);
+  }
+  .photo-carousel-track{display:flex;width:100%;height:100%;transition:transform .25s ease;}
+  .photo-carousel-img{width:100%;height:100%;object-fit:cover;flex-shrink:0;}
+  .carousel-nav{
+    position:absolute;top:50%;transform:translateY(-50%);
+    width:30px;height:30px;border-radius:50%;border:none;
+    background:rgba(31,51,42,.55);color:#fff;font-size:19px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;line-height:1;padding:0;
+  }
+  .carousel-nav.prev{left:8px;}
+  .carousel-nav.next{right:8px;}
+  .carousel-dots{position:absolute;bottom:9px;left:0;right:0;display:flex;justify-content:center;gap:5px;}
+  .carousel-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);cursor:pointer;}
+  .carousel-dot.active{background:#fff;}
+  .photo-actions{position:absolute;top:8px;right:8px;display:flex;gap:6px;}
+  .photo-actions button{
+    background:rgba(31,51,42,.85);color:#fff;border:none;border-radius:8px;
+    font-size:13.5px;font-weight:600;padding:7px 10px;cursor:pointer;
+  }
+
+  .ing-subtitle{font-size:17.5px;font-weight:600;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;flex-wrap:wrap;gap:5px;}
+  .inline-num{
+    width:34px !important;padding:4px 2px !important;border:1px solid var(--line);border-radius:7px;
+    font-size:16px;font-weight:600;text-align:center;margin:0 1px;flex-shrink:0;
+    background:#FCFBF8;color:var(--primary-dark);font-family:'Inter',sans-serif;
+    -moz-appearance:textfield;
+  }
+  .inline-num::-webkit-outer-spin-button,
+  .inline-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .servings-box{
+    background:#E3EFE6;border:1px solid #C3DBC9;border-radius:12px;
+    padding:14px;margin:6px 0 16px;
+  }
+  .servings-row{display:flex;align-items:center;gap:10px;}
+  .servings-row input{width:70px;text-align:center;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:18px;font-weight:600;}
+  .send-btn{
+    margin-top:12px;width:100%;background:var(--primary);color:#fff;border:none;
+    border-radius:10px;padding:13px;font-weight:700;font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .send-btn.remove-mode{background:var(--accent);}
+  .btn-spinner{
+    display:inline-block;width:14px;height:14px;border-radius:50%;
+    border:2px solid currentColor;border-right-color:transparent;border-top-color:transparent;
+    animation:btnspin .6s linear infinite;margin-right:7px;vertical-align:-2px;
+  }
+  @keyframes btnspin{to{transform:rotate(360deg);}}
+  .toast{
+    position:fixed;bottom:112px;left:50%;transform:translateX(-50%);
+    background:var(--primary-dark);color:#fff;padding:10px 18px;border-radius:24px;
+    font-size:15px;font-weight:600;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.25);
+  }
+  .footer-version{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 0 6px;margin-top:auto;}
+  .test-ribbon{position:fixed;top:0;left:0;background:#C1442E;color:#fff;font-size:10px;font-weight:700;letter-spacing:.08em;padding:2px 9px;z-index:100;border-bottom-right-radius:8px;pointer-events:none;}
+  .store-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;}
+  .rc-sent{color:#3E6350;font-weight:600;}
+  .courses-counter{display:flex;align-items:center;gap:12px;font-size:15px;color:var(--ink-soft);margin:0 2px 14px;font-weight:600;}
+  .cc-bar{flex:1;height:7px;border-radius:5px;background:var(--line);overflow:hidden;}
+  .cc-fill{height:100%;background:#3E6350;border-radius:5px;transition:width .25s ease;}
+
+  .modal.recipe-modal{padding-bottom:0;}
+  .rb-band{display:flex;gap:12px;align-items:stretch;margin-bottom:14px;}
+  .rb-left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:8px;}
+  .rb-title{
+    width:100%;border:none;border-bottom:1.5px dashed var(--line);background:transparent;
+    padding:2px 0 6px;font-family:'Fraunces',serif;font-weight:600;font-size:22px;line-height:1.2;
+    color:var(--primary-dark);resize:none;overflow:hidden;border-radius:0;
+  }
+  .rb-title:focus{outline:none;border-bottom-color:var(--primary);}
+  .rb-title::placeholder{color:var(--muted);font-weight:400;}
+  .stepper{display:flex;align-items:center;gap:9px;font-size:15px;color:var(--ink-soft);flex-wrap:wrap;}
+  .step-btn{
+    width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);
+    color:var(--primary-dark);font-size:21px;line-height:1;cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .step-btn:active{background:#E3EFE6;}
+  .step-val{min-width:22px;text-align:center;font-size:20px;font-weight:700;color:var(--primary-dark);}
+  .rb-photo{
+    width:104px;height:104px;border-radius:14px;overflow:hidden;border:1px solid var(--line);
+    background:var(--accent-soft);position:relative;flex-shrink:0;padding:0;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;
+    font-family:'Inter',sans-serif;color:var(--primary);font-weight:600;font-size:12.5px;
+  }
+  .rb-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .rb-photo .ic{font-size:26px;}
+  .rb-photo.loading{cursor:default;color:var(--muted);}
+  .rb-photo-count{position:absolute;right:6px;bottom:6px;background:rgba(31,51,42,.8);color:#fff;font-size:12px;font-weight:600;border-radius:10px;padding:2px 7px;}
+  .photo-viewer .photo-zone{max-height:none;aspect-ratio:4/3;margin-bottom:8px;}
+  .ing-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:4px 14px 14px;margin-bottom:10px;}
+  .ing-head{display:flex;justify-content:space-between;align-items:center;padding:10px 0 4px;}
+  .ing-head h3{font-size:19px;color:var(--ink);}
+  .ing-line{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:16.5px;}
+  .ing-lines .ing-line:last-child{border-bottom:none;}
+  .ing-line .il-qty{color:var(--ink-soft);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .edit-base{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:14.5px;color:var(--ink-soft);margin:4px 0 12px;}
+  .sticky-bar{
+    position:sticky;bottom:0;margin:14px -16px 0;z-index:5;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    background:var(--bg);border-top:1px solid var(--line);display:flex;gap:10px;
+  }
+  .sticky-bar .btn-save{flex:1;padding:13px 10px;}
+  .sticky-bar .send-btn{margin-top:0;flex:1.7;}
+  .del-recipe{display:block;margin:14px auto 0;}
+</style>
+</head>
+<body>
+<div class="test-ribbon">TEST</div>
+<div id="app"></div>
+
+<div class="tabbar">
+  <button class="tab" data-tab="produits"><span class="ic">🥕</span>Produits</button>
+  <button class="tab" data-tab="plats"><span class="ic">🍽️</span>Plats</button>
+  <button class="tab" data-tab="courses"><span class="ic">🛒</span>Courses</button>
+</div>
+
+<script>
+const APP_VERSION = "V2.03-test";
+const UNITS = [
+  {v:'nombre',l:'nb'},{v:'g',l:'g'},{v:'ml',l:'ml'},{v:'cas',l:'c. à s.'}
+];
+const unitLabel = v => (UNITS.find(u=>u.v===v)||{l:v}).l;
+const STORE_COLORS = ['#C1442E','#2F7D6D','#D08A1E','#4A6FA5','#8E5BA8','#7A8B2E','#C25B8A','#5E6B73'];
+function storeColor(id){
+  if(!id) return null;
+  let h = 0;
+  for(let i=0;i<id.length;i++) h = (h*31 + id.charCodeAt(i)) >>> 0;
+  return STORE_COLORS[h % STORE_COLORS.length];
+}
+function haptic(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||30); }catch(e){} }
+const uid = () => Math.random().toString(36).slice(2,10);
+
+let state = { products: [], stores: [], recipes: [], shoppingList: { checklist: [] } };
+const VALID_TABS = ['produits','plats','courses'];
+const hashTab = (location.hash||'').replace('#','');
+let currentTab = VALID_TABS.includes(hashTab) ? hashTab : 'produits';
+let pollTimer = null;
+const sleep = ms => new Promise(res=>setTimeout(res, ms));
+
+const FIREBASE_URL = "https://app-courses-6546a-default-rtdb.europe-west1.firebasedatabase.app";
+function fbPath(key){
+  // photo:<recipeId> is stored under a nested /photos/<recipeId> path
+  if(key.indexOf('photo:')===0) return 'photos/' + key.slice(6);
+  return key;
+}
+
+// A stalled network request (no response, no error) must never hang forever,
+// or the app would stay stuck on "Chargement…" indefinitely.
+function fetchWithTimeout(url, options, timeoutMs=8000){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), timeoutMs);
+  return fetch(url, {...(options||{}), signal: controller.signal}).finally(()=>clearTimeout(timer));
+}
+
+// Retries a few times before giving up, since a transient network hiccup
+// must never be silently treated as "no data" (that risks overwriting real data later).
+async function safeGet(key, retries=2){
+  const path = fbPath(key);
+  for(let attempt=0; attempt<=retries; attempt++){
+    try{
+      const res = await fetchWithTimeout(`${FIREBASE_URL}/${path}.json`);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      return (data === null || data === undefined) ? null : data;
+    }catch(e){
+      if(attempt===retries) return null;
+      await sleep(400);
+    }
+  }
+  return null;
+}
+async function safeSet(key, val, retries=2){
+  const path = fbPath(key);
+  for(let attempt=0; attempt<=retries; attempt++){
+    try{
+      const res = await fetchWithTimeout(`${FIREBASE_URL}/${path}.json`, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(val)
+      });
+      if(res.ok) return true;
+    }catch(e){ /* retry below */ }
+    if(attempt<retries) await sleep(300);
+  }
+  console.error('firebase set failed after retries', key);
+  showToast('⚠️ Échec de l\'enregistrement, réessaie');
+  return false;
+}
+
+async function loadAll(){
+  const [products, stores, recipes, shoppingList] = await Promise.all([
+    safeGet('products'), safeGet('stores'), safeGet('recipes'), safeGet('shopping_list')
+  ]);
+  state.products = products || [];
+  state.stores = stores || [];
+  state.recipes = recipes || [];
+  state.shoppingList = shoppingList || { checklist: [] };
+  await migrateIfNeeded();
+}
+
+// Migration from v1 data model (ingredient.name/storeId, free units) to v2 (productId, restricted units)
+async function migrateIfNeeded(){
+  let changed = false;
+  const unitMap = {kg:'g', l:'ml', piece:'nombre', cas:'nombre', cac:'nombre', pincee:'nombre', autre:'nombre'};
+  const unitFactor = {kg:1000, l:1000};
+
+  function findOrCreateProduct(name, storeId){
+    const key = name.trim().toLowerCase();
+    let p = state.products.find(x=>x.name.trim().toLowerCase()===key);
+    if(!p){
+      p = { id: uid(), name: name.trim(), storeId: storeId || '' };
+      state.products.push(p);
+      changed = true;
+    } else if(storeId && !p.storeId){
+      p.storeId = storeId; changed = true;
+    }
+    return p;
+  }
+
+  state.recipes.forEach(r=>{
+    r.ingredients.forEach(ing=>{
+      if(!ing.productId && ing.name){
+        const factor = unitFactor[ing.unit] || 1;
+        const newUnit = unitMap[ing.unit] || ing.unit;
+        const p = findOrCreateProduct(ing.name, ing.storeId);
+        ing.productId = p.id;
+        ing.qty = (parseFloat(ing.qty)||0) * factor;
+        ing.unit = ['nombre','g','ml'].includes(newUnit) ? newUnit : 'nombre';
+        delete ing.name; delete ing.storeId;
+        changed = true;
+      }
+    });
+  });
+
+  if(state.shoppingList.selections){
+    // old model had recipe selections; no longer used
+    delete state.shoppingList.selections;
+    changed = true;
+  }
+  if(state.shoppingList.checklist){
+    state.shoppingList.checklist.forEach(item=>{
+      if(!item.productId && item.name){
+        const factor = unitFactor[item.unit] || 1;
+        const newUnit = unitMap[item.unit] || item.unit;
+        const p = findOrCreateProduct(item.name, item.storeId);
+        item.productId = p.id;
+        item.qty = (parseFloat(item.qty)||0) * factor;
+        item.unit = ['nombre','g','ml'].includes(newUnit) ? newUnit : 'nombre';
+        delete item.name; delete item.storeId;
+        changed = true;
+      }
+    });
+  }
+
+  if(changed){
+    await Promise.all([
+      safeSet('products', state.products),
+      safeSet('recipes', state.recipes),
+      safeSet('shopping_list', state.shoppingList)
+    ]);
+  }
+}
+
+function findProduct(id){ return state.products.find(p=>p.id===id); }
+function findProductByName(name){
+  const key = name.trim().toLowerCase();
+  return state.products.find(p=>p.name.trim().toLowerCase()===key);
+}
+function storeName(id){ const s = state.stores.find(x=>x.id===id); return s ? s.name : ''; }
+
+/* ---------- RENDER ROOT ---------- */
+function render(){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===currentTab));
+  const app = document.getElementById('app');
+  if(currentTab==='produits') app.innerHTML = renderProduitsTab();
+  else if(currentTab==='plats') app.innerHTML = renderPlatsTab();
+  else app.innerHTML = renderCoursesTab();
+  app.innerHTML += `<div class="footer-version">Panier &amp; Fourneaux · ${APP_VERSION}</div>`;
+  attachHandlers();
+  if(currentTab==='plats') ensurePlatsThumbnails();
+}
+
+/* ---------- PRODUITS TAB ---------- */
+let productSearchQuery = '';
+
+function renderProductsListInner(){
+  if(state.products.length===0){
+    return `<div class="empty"><div class="em-icon">🥕</div><p>Aucun produit pour l'instant.</p><p>Ajoute tes produits du quotidien avec le bouton +</p></div>`;
+  }
+  const qRaw = productSearchQuery.trim();
+  const filtered = filterProductsByQuery(qRaw);
+  let html = '';
+  if(filtered.length===0){
+    html += `<div class="inline-picker-list">
+      <div class="prod-pick-option no-match">Aucun produit trouvé.</div>
+      <div class="prod-pick-new" data-quick-add-product>+ Ajouter "${escapeHtml(qRaw)}" à la liste de produits</div>
+    </div>`;
+    return html;
+  }
+  const inListIds = new Set(state.shoppingList.checklist.map(it=>it.productId));
+  html += `<div class="card" style="padding:4px 12px;">`;
+  filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    const sn = storeName(p.storeId);
+    const inList = inListIds.has(p.id);
+    html += `<div class="product-row ${inList?'in-list':''}" data-add-product="${p.id}">
+      <span class="pr-name">${escapeHtml(p.name)}</span>
+      <div class="pr-right">
+        <span class="pr-store ${sn?'':'none'}">${sn?`<span class="store-dot" style="background:${storeColor(p.storeId)||'#999'}"></span>${escapeHtml(sn)}`:'Sans magasin'}</span>
+        <button class="pr-edit" data-edit-product="${p.id}" title="Modifier">✎</button>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  if(qRaw){
+    html += `<button type="button" class="btn btn-ghost btn-block" data-quick-add-product style="margin-top:10px;">+ Ajouter "${escapeHtml(qRaw)}" à la liste de produits</button>`;
+  }
+  return html;
+}
+
+function attachProductRowHandlers(container){
+  if(!container) return;
+  container.querySelectorAll('[data-add-product]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const p = findProduct(el.getAttribute('data-add-product'));
+      if(p) showModal(productAddToListModal(p));
+    });
+  });
+  container.querySelectorAll('[data-edit-product]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const p = findProduct(el.getAttribute('data-edit-product'));
+      if(p) showModal(productFormModal(p));
+    });
+  });
+}
+function updateProductsList(){
+  const container = document.getElementById('products-list-container');
+  if(!container) return;
+  container.innerHTML = renderProductsListInner();
+  attachProductRowHandlers(container);
+}
+
+function refreshProductStoreSelect(){
+  const sel = document.getElementById('f-pstore');
+  if(!sel || !window._editingProduct) return;
+  sel.innerHTML = renderStoreOptions(window._editingProduct.storeId);
+}
+
+function renderProduitsTab(){
+  let html = `<div class="header"><h1>Produits</h1><span class="tag">${state.products.length} produit${state.products.length>1?'s':''}</span></div>`;
+  if(state.products.length>0){
+    html += `<div class="search-row">
+      <input type="text" class="search-input" id="product-search" placeholder="Rechercher un produit…" value="${escapeHtml(productSearchQuery)}">
+      <button class="fab-inline" data-new-product type="button">+</button>
+    </div>`;
+  }
+  html += `<div id="products-list-container">${renderProductsListInner()}</div>`;
+  if(state.products.length===0){
+    html += `<button class="fab" data-new-product>+</button>`;
+  }
+  return html;
+}
+
+function renderStoreOptions(selectedId){
+  return `<option value="">Aucun</option>` +
+    state.stores.map(s=>`<option value="${s.id}" ${selectedId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('') +
+    `<option value="__manage__">⚙ Gérer les magasins…</option>`;
+}
+
+/* ---------- PRODUCT PICKER (searchable, reused for ingredients & add-to-list) ---------- */
+function normalizeSearch(s){
+  return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function filterProductsByQuery(query){
+  const q = normalizeSearch(query.trim());
+  const sorted = state.products.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  if(!q) return sorted;
+  return sorted.filter(p=>normalizeSearch(p.name).includes(q));
+}
+function productPickerListHtml(query, ctx){
+  const matches = filterProductsByQuery(query).slice(0, 40);
+  let html = matches.map(p=>`<div class="prod-pick-option" data-picker-context="${ctx}" data-product-id="${p.id}">${escapeHtml(p.name)}</div>`).join('');
+  if(matches.length===0) html += `<div class="subtle" style="padding:10px 12px;">Aucun produit trouvé.</div>`;
+  const typedQ = (query||'').trim();
+  if(ctx==='courses-search' && typedQ){
+    html += `<div class="prod-pick-new prod-pick-custom" data-custom-name="${escapeHtml(typedQ)}">+ Ajouter "${escapeHtml(typedQ)}" à la liste de courses (ponctuel)</div>`;
+  }
+  html += `<div class="prod-pick-new" data-picker-context="${ctx}">+ Ajouter un nouveau produit à la liste de produits</div>`;
+  return html;
+}
+function showProdPickerList(ctx, query){
+  const listEl = document.querySelector(`.prod-picker-list[data-picker-context="${ctx}"]`);
+  if(!listEl) return;
+  listEl.innerHTML = productPickerListHtml(query, ctx);
+  listEl.style.display = 'block';
+}
+function hideAllProdPickerLists(){
+  document.querySelectorAll('.prod-picker-list').forEach(el=>{ el.style.display='none'; });
+}
+function ingredientProductPickerHtml(ing, idx){
+  const selectedName = ing.productId ? ((findProduct(ing.productId)||{}).name || '') : '';
+  const ctx = 'ing:'+idx;
+  return `<div class="prod-picker">
+    <input type="text" class="prod-picker-input" data-picker-context="${ctx}" value="${escapeHtml(selectedName)}" placeholder="Choisir un produit…" autocomplete="off">
+    <div class="prod-picker-list" data-picker-context="${ctx}"></div>
+  </div>`;
+}
+function applyProductPickerSelection(ctx, product){
+  if(!product) return;
+  if(ctx.indexOf('ing:')===0){
+    const idx = parseInt(ctx.split(':')[1]);
+    if(window._editingRecipe) window._editingRecipe.ingredients[idx].productId = product.id;
+    const input = document.querySelector(`.prod-picker-input[data-picker-context="${ctx}"]`);
+    if(input) input.value = product.name;
+  } else if(ctx === 'addlist'){
+    const input = document.getElementById('add-prod-name');
+    if(input){ input.value = product.name; input.dataset.selectedId = product.id; }
+  } else if(ctx === 'courses-search'){
+    const input = document.getElementById('courses-search');
+    if(input) input.value = '';
+    showModal(productAddToListModal(product));
+  }
+}
+
+function productFormModal(product, prefillName){
+  const isEdit = !!product;
+  const p = product || { id: uid(), name: prefillName || '', storeId:'' };
+  window._editingProduct = {...p};
+  return `<div class="modal-overlay" data-overlay>
+    <div class="modal">
+      <div class="modal-head"><h2>${isEdit?'Modifier':'Nouveau'} produit</h2><button class="modal-close" data-close-modal>✕</button></div>
+      <div class="field">
+        <label>Nom du produit</label>
+        <input type="text" id="f-pname" value="${escapeHtml(p.name)}" placeholder="Ex : Tomates, Lessive, Œufs…">
+      </div>
+      <div class="field">
+        <label>Magasin</label>
+        <select id="f-pstore">${renderStoreOptions(p.storeId)}</select>
+      </div>
+      <div class="row2" style="margin-top:16px;">
+        ${isEdit?`<button class="btn btn-danger" data-delete-product="${p.id}">Supprimer</button>`:''}
+        <button class="btn btn-primary btn-block" data-save-product>Enregistrer</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function productAddToListModal(product){
+  window._addingProductId = product.id;
+  window._addingCustomName = null;
+  return `<div class="modal-overlay" data-overlay>
+    <div class="modal">
+      <div class="modal-head"><h2>${escapeHtml(product.name)}</h2><button class="modal-close" data-close-modal>✕</button></div>
+      <div class="row2">
+        <div class="field"><label>Quantité</label><input type="number" min="0" step="any" id="qty-for-product" value="1"></div>
+        <div class="field"><label>Unité</label>
+          <select id="unit-for-product">${UNITS.map(u=>`<option value="${u.v}">${u.l}</option>`).join('')}</select>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" data-confirm-add-specific>Ajouter à la liste</button>
+    </div>
+  </div>`;
+}
+
+function customItemAddModal(name){
+  const m = productAddToListModal({id:'', name});
+  window._addingProductId = null;
+  window._addingCustomName = name;
+  return m;
+}
+
+function unsavedChangesModal(context){
+  window._unsavedPromptContext = context;
+  const message = context==='send'
+    ? "Ce plat n'est pas encore enregistré. Tu veux l'enregistrer avant de l'envoyer dans la liste de courses ?"
+    : "Ce plat n'est pas encore enregistré. Si tu fermes maintenant, tes modifications seront perdues.";
+  const discardLabel = context==='send' ? 'Envoyer sans enregistrer' : 'Fermer sans enregistrer';
+  return `<div class="modal-overlay" data-overlay>
+    <div class="modal">
+      <div class="modal-head"><h2>Enregistrer ce plat ?</h2><button class="modal-close" data-close-modal>✕</button></div>
+      <p class="subtle" style="margin-bottom:18px;line-height:1.5;">${message}</p>
+      <button class="btn btn-primary btn-block" data-unsaved-save style="margin-bottom:10px;">Enregistrer</button>
+      <button class="btn btn-soft-danger btn-block" data-unsaved-discard style="margin-bottom:10px;">${discardLabel}</button>
+      <button class="btn btn-ghost btn-block" data-close-modal>Continuer à modifier</button>
+    </div>
+  </div>`;
+}
+
+function storesManagerModal(){
+  return `<div class="modal-overlay" data-overlay>
+    <div class="modal">
+      <div class="modal-head"><h2>Magasins</h2><button class="modal-close" data-close-modal>✕</button></div>
+      <div id="stores-list" style="margin-bottom:14px;">${renderStoreChips()}</div>
+      <div class="field">
+        <label>Nouveau magasin</label>
+        <input type="text" id="new-store-inline" placeholder="Ex : Carrefour, Marché…">
+      </div>
+      <button class="btn btn-primary btn-block" data-add-store-inline>Ajouter</button>
+    </div>
+  </div>`;
+}
+function renderStoreChips(){
+  if(state.stores.length===0) return `<p class="subtle">Aucun magasin pour l'instant.</p>`;
+  return state.stores.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`
+    <div class="store-row">
+      <span class="store-row-name" data-store-id="${s.id}">${escapeHtml(s.name)}</span>
+      <div class="store-row-actions">
+        <button class="pr-edit" data-edit-store="${s.id}" title="Renommer">✎</button>
+        <button class="pr-edit" data-delete-store="${s.id}" title="Supprimer">✕</button>
+      </div>
+    </div>`).join('');
+}
+function startStoreRename(storeId){
+  const nameSpan = document.querySelector(`.store-row-name[data-store-id="${storeId}"]`);
+  const store = state.stores.find(s=>s.id===storeId);
+  if(!nameSpan || !store) return;
+  nameSpan.outerHTML = `<input type="text" class="store-rename-input" data-store-id="${storeId}" value="${escapeHtml(store.name)}">`;
+  const input = document.querySelector(`.store-rename-input[data-store-id="${storeId}"]`);
+  if(!input) return;
+  input.focus();
+  input.select();
+  const commit = async () => {
+    const newName = input.value.trim();
+    if(newName && newName !== store.name){
+      store.name = newName;
+      await safeSet('stores', state.stores);
+    }
+    const list = document.getElementById('stores-list');
+    if(list) list.innerHTML = renderStoreChips();
+    refreshProductStoreSelect();
+  };
+  input.addEventListener('blur', commit, {once:true});
+  input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') input.blur(); });
+}
+
+/* ---------- PLATS TAB ---------- */
+let platsSearchQuery = '';
+let photoCache = {};
+let photoCacheLoading = {};
+const MAX_PHOTOS = 5;
+
+function snapshotRecipeState(r){
+  return JSON.stringify({
+    name: r.name, baseServings: r.baseServings, steps: r.steps,
+    ingredients: r.ingredients.filter(i=>i.productId).map(i=>({productId:i.productId, qty:i.qty, unit:i.unit})),
+    photoCount: (window._recipePhotos||[]).length
+  });
+}
+function updateEditingSnapshot(){
+  const r = window._editingRecipe;
+  if(!r) return;
+  window._editingRecipeSnapshot = snapshotRecipeState(r);
+}
+function recipeHasUnsavedChanges(){
+  const r = window._editingRecipe;
+  if(!r || !window._editingRecipeSnapshot) return false;
+  return snapshotRecipeState(r) !== window._editingRecipeSnapshot;
+}
+function recipeInShoppingList(r){
+  return state.shoppingList.checklist.some(it=>it.sourceRecipeId===r.id && !it.checked);
+}
+function recipeSentServings(r){
+  const item = state.shoppingList.checklist.find(it=>it.sourceRecipeId===r.id && !it.checked && it.sourceServings);
+  return item ? item.sourceServings : null;
+}
+function recipePhotoCount(r){
+  if(typeof r.photoCount === 'number') return r.photoCount;
+  return r.hasPhoto ? 1 : 0; // backward-compat with recipes saved before multi-photo support
+}
+function normalizePhotos(raw){
+  if(Array.isArray(raw)) return raw.filter(Boolean);
+  if(typeof raw === 'string' && raw) return [raw]; // backward-compat: old single-photo string
+  return [];
+}
+
+function renderPlatsListInner(){
+  if(state.recipes.length===0){
+    return `<div class="empty"><div class="em-icon">🍳</div><p>Aucune recette pour l'instant.</p><p>Ajoute ton premier plat avec le bouton +</p></div>`;
+  }
+  const qRaw = platsSearchQuery.trim();
+  const q = normalizeSearch(qRaw);
+  const filtered = state.recipes.filter(r=>normalizeSearch(r.name).includes(q));
+  let html = '';
+  if(filtered.length===0){
+    html += `<div class="inline-picker-list">
+      <div class="prod-pick-option no-match">Aucun plat trouvé.</div>
+      <div class="prod-pick-new" data-quick-add-recipe>+ Ajouter "${escapeHtml(qRaw)}" comme nouveau plat</div>
+    </div>`;
+    return html;
+  }
+  filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>{
+    const pCount = recipePhotoCount(r);
+    const thumbContent = (pCount>0 && photoCache[r.id])
+      ? `<img src="${photoCache[r.id]}" style="width:100%;height:100%;object-fit:cover;">`
+      : (pCount>0 ? '📷' : '🍽️');
+    const sent = recipeInShoppingList(r);
+    html += `<div class="card recipe-card ${sent?'in-cart':''}" data-open-recipe="${r.id}">
+      ${sent ? `<span class="rc-cart-badge" title="Dans la liste de courses">
+        <svg viewBox="0 0 24 24" width="13" height="13">
+          <path d="M3 4h2.5l1.2 3.2" stroke="#F1EEE2" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+          <path d="M7 8h13l-1.8 6.5H9z" fill="#F1EEE2"/>
+          <circle cx="10" cy="18.5" r="1.4" fill="#F1EEE2"/>
+          <circle cx="16" cy="18.5" r="1.4" fill="#F1EEE2"/>
+        </svg>
+      </span>` : ''}
+      <div class="rc-thumb">
+        ${thumbContent}
+      </div>
+      <div class="rc-main">
+        <h3>${escapeHtml(r.name)}</h3>
+        ${(()=>{ const n=(r.ingredients||[]).filter(i=>i&&i.productId).length; if(!n) return ''; return `<div class="rc-meta">${n} ingrédient${n>1?'s':''}${sent?` · <span class="rc-sent">pour ${recipeSentServings(r) || r.baseServings} pers.</span>`:''}</div>`; })()}
+      </div>
+      <div class="rc-chevron">›</div>
+    </div>`;
+  });
+  if(qRaw){
+    html += `<button type="button" class="btn btn-ghost btn-block" data-quick-add-recipe style="margin-top:10px;">+ Ajouter "${escapeHtml(qRaw)}" comme nouveau plat</button>`;
+  }
+  return html;
+}
+
+function attachPlatsRowHandlers(container){
+  if(!container) return;
+  container.querySelectorAll('[data-open-recipe]').forEach(el=>{
+    const id = el.getAttribute('data-open-recipe');
+    let pressTimer = null;
+    let longPressed = false;
+    const clearTimer = ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
+    const startPress = ()=>{
+      longPressed = false;
+      clearTimer();
+      pressTimer = setTimeout(async ()=>{
+        longPressed = true;
+        const r = state.recipes.find(x=>x.id===id);
+        if(!confirm(`Supprimer "${r?r.name:'ce plat'}" ?`)) return;
+        state.recipes = state.recipes.filter(x=>x.id!==id);
+        await safeSet('recipes', state.recipes);
+        updatePlatsList();
+      }, 550);
+    };
+    el.addEventListener('touchstart', startPress, {passive:true});
+    el.addEventListener('touchend', clearTimer);
+    el.addEventListener('touchmove', clearTimer);
+    el.addEventListener('touchcancel', clearTimer);
+    el.addEventListener('mousedown', startPress);
+    el.addEventListener('mouseup', clearTimer);
+    el.addEventListener('mouseleave', clearTimer);
+    el.addEventListener('click', (e)=>{
+      if(longPressed){ e.preventDefault(); e.stopPropagation(); longPressed=false; return; }
+      const r = state.recipes.find(x=>x.id===id);
+      recipeDetailModal(r);
+    });
+  });
+}
+function updatePlatsList(){
+  const container = document.getElementById('plats-list-container');
+  if(!container) return;
+  container.innerHTML = renderPlatsListInner();
+  attachPlatsRowHandlers(container);
+}
+
+async function ensurePlatsThumbnails(){
+  const toLoad = state.recipes.filter(r=>recipePhotoCount(r)>0 && !(r.id in photoCache) && !photoCacheLoading[r.id]);
+  if(toLoad.length===0) return;
+  toLoad.forEach(r=>{ photoCacheLoading[r.id]=true; });
+  await Promise.all(toLoad.map(async r=>{
+    const raw = await safeGet('photo:'+r.id);
+    const photos = normalizePhotos(raw);
+    photoCache[r.id] = photos[0] || null;
+    delete photoCacheLoading[r.id];
+  }));
+  if(currentTab==='plats') updatePlatsList();
+}
+
+function renderPlatsTab(){
+  let html = `<div class="header"><h1>Plats</h1><span class="tag">${state.recipes.length} plat${state.recipes.length>1?'s':''}</span></div>`;
+  if(state.recipes.length>0){
+    html += `<div class="search-row">
+      <input type="text" class="search-input" id="plats-search" placeholder="Rechercher un plat…" value="${escapeHtml(platsSearchQuery)}">
+      <button class="fab-inline" data-new-recipe type="button">+</button>
+    </div>`;
+  }
+  html += `<div id="plats-list-container">${renderPlatsListInner()}</div>`;
+  if(state.recipes.length===0){
+    html += `<button class="fab" data-new-recipe>+</button>`;
+  }
+  return html;
+}
+
+async function recipeDetailModal(recipeOrNull, prefillName){
+  const isEdit = !!recipeOrNull;
+  const r = recipeOrNull ? JSON.parse(JSON.stringify(recipeOrNull)) : { id: uid(), name:prefillName||'', baseServings:2, ingredients:[{id:uid(),productId:'',qty:1,unit:'nombre'}], steps:'', photoCount:0 };
+  // Defensive repair: never let malformed saved data (missing/invalid fields) prevent opening.
+  if(!Array.isArray(r.ingredients) || r.ingredients.length===0){
+    r.ingredients = [{id:uid(),productId:'',qty:1,unit:'nombre'}];
+  } else {
+    r.ingredients = r.ingredients.map(ing=>({
+      id: ing && ing.id ? ing.id : uid(),
+      productId: (ing && ing.productId) || '',
+      qty: (ing && typeof ing.qty === 'number') ? ing.qty : (parseFloat(ing && ing.qty) || 1),
+      unit: (ing && ing.unit) || 'nombre'
+    }));
+  }
+  if(typeof r.baseServings !== 'number' || !r.baseServings || r.baseServings<1){
+    r.baseServings = parseFloat(r.baseServings) || 2;
+  }
+  if(typeof r.name !== 'string') r.name = '';
+  try{
+    await openRecipeDetailModalInner(r, isEdit);
+  }catch(err){
+    console.error('recipeDetailModal failed to open', err);
+    alert("Ce plat n'a pas pu s'ouvrir à cause d'une donnée invalide. Tu peux le supprimer directement depuis la liste avec le bouton 🗑 qui apparaît maintenant sur chaque carte.");
+  }
+}
+async function openRecipeDetailModalInner(r, isEdit){
+  window._editingRecipe = r;
+  window._showSteps = false;
+  window._recipePhotos = [];
+  window._photoIndex = 0;
+  window._sendServings = r.baseServings;
+  window._editIngs = !isEdit || !r.ingredients.some(i=>i.productId);
+  window._photosLoading = isEdit && recipePhotoCount(r) > 0;
+
+  showModal(`<div class="modal-overlay" data-overlay>
+    <div class="modal recipe-modal">
+      <div class="modal-head"><h2>${isEdit?'Modifier le plat':'Nouveau plat'}</h2><button class="modal-close" data-close-modal>✕</button></div>
+      <div id="recipe-form">${renderRecipeFormBody()}</div>
+    </div>
+  </div>`);
+
+  if(isEdit && recipePhotoCount(r) > 0){
+    const raw = await safeGet('photo:'+r.id);
+    window._recipePhotos = normalizePhotos(raw);
+    window._photoIndex = 0;
+    window._photosLoading = false;
+    refreshPhotoUI();
+  }
+  setTimeout(fitRecipeTitle, 200);
+  updateEditingSnapshot();
+}
+
+function photoZoneHtml(){
+  const photos = window._recipePhotos || [];
+  if(photos.length===0){
+    return `<button type="button" class="photo-add-btn" id="photo-zone-inner" data-take-photo><span class="ic">📷</span>Ajouter une photo</button>`;
+  }
+  let idx = window._photoIndex || 0;
+  if(idx > photos.length-1) idx = photos.length-1;
+  if(idx < 0) idx = 0;
+  window._photoIndex = idx;
+  const canAddMore = photos.length < MAX_PHOTOS;
+  return `<div class="photo-zone" id="photo-zone-inner">
+    <div class="photo-carousel-track" style="transform:translateX(-${idx*100}%);">
+      ${photos.map(p=>`<img class="photo-carousel-img" src="${p}">`).join('')}
+    </div>
+    ${photos.length>1 ? `
+      <button type="button" class="carousel-nav prev" data-photo-nav="-1">‹</button>
+      <button type="button" class="carousel-nav next" data-photo-nav="1">›</button>
+      <div class="carousel-dots">${photos.map((_,i)=>`<span class="carousel-dot ${i===idx?'active':''}" data-photo-dot="${i}"></span>`).join('')}</div>
+    ` : ''}
+    <div class="photo-actions">
+      ${canAddMore ? `<button type="button" data-take-photo>+ Ajouter</button>` : ''}
+      <button type="button" data-remove-photo>Retirer</button>
+    </div>
+  </div>`;
+}
+
+function photoThumbHtml(){
+  const photos = window._recipePhotos || [];
+  if(window._photosLoading && photos.length===0){
+    return `<div class="rb-photo loading"><span class="ic">📷</span>…</div>`;
+  }
+  if(photos.length===0){
+    return `<button type="button" class="rb-photo" data-take-photo aria-label="Ajouter une photo"><span class="ic">📷</span>Photo</button>`;
+  }
+  const idx = Math.max(0, Math.min(window._photoIndex||0, photos.length-1));
+  return `<button type="button" class="rb-photo" data-open-photos aria-label="Voir les photos"><img src="${photos[idx]}" alt="">${photos.length>1?`<span class="rb-photo-count">${idx+1}/${photos.length}</span>`:''}</button>`;
+}
+function photoViewerModal(){
+  return `<div class="modal-overlay" data-overlay>
+    <div class="modal photo-viewer">
+      <div class="modal-head"><h2>Photos</h2><button class="modal-close" data-close-modal>✕</button></div>
+      ${photoZoneHtml()}
+    </div>
+  </div>`;
+}
+function refreshPhotoUI(){
+  const zone = document.getElementById('photo-zone-inner');
+  if(zone) zone.outerHTML = photoZoneHtml();
+  const slot = document.getElementById('rb-photo-slot');
+  if(slot) slot.innerHTML = photoThumbHtml();
+}
+function stepperInnerHtml(){
+  const r = window._editingRecipe;
+  if(window._editIngs) return `Pour ${formatQty(r.baseServings)} personne${r.baseServings>1?'s':''}`;
+  const n = window._sendServings || r.baseServings;
+  return `Pour <button type="button" class="step-btn" data-serv-step="-1" aria-label="Moins">−</button><span class="step-val">${formatQty(n)}</span><button type="button" class="step-btn" data-serv-step="1" aria-label="Plus">+</button> pers.`;
+}
+function ingredientsBlockHtml(){
+  const r = window._editingRecipe;
+  if(window._editIngs){
+    const rows = r.ingredients.map((ing,idx)=>`<div class="ing-row">
+      ${ingredientProductPickerHtml(ing, idx)}
+      <input type="number" min="0" step="any" placeholder="Qté" value="${ing.qty}" data-ing-field="qty" data-ing-idx="${idx}">
+      <select data-ing-field="unit" data-ing-idx="${idx}">
+        ${UNITS.map(u=>`<option value="${u.v}" ${ing.unit===u.v?'selected':''}>${u.l}</option>`).join('')}
+      </select>
+      <button class="ing-remove" data-remove-ing="${idx}" title="Retirer">✕</button>
+    </div>`).join('');
+    return `<div class="ing-head"><h3>Ingrédients</h3><button type="button" class="link-btn" data-toggle-edit-ings>✓ Terminé</button></div>
+      <div class="edit-base">Quantités saisies pour <input type="number" id="f-servings" class="inline-num" min="1" value="${r.baseServings}"> personnes</div>
+      <div id="ing-list">${rows}</div>
+      <button class="btn btn-ghost btn-sm" data-add-ing type="button">+ Ajouter un ingrédient</button>`;
+  }
+  const base = parseFloat(r.baseServings) || 1;
+  const factor = (window._sendServings || base) / base;
+  const lines = r.ingredients.filter(i=>i.productId).map(ing=>{
+    const p = findProduct(ing.productId);
+    const q = (parseFloat(ing.qty)||0) * factor;
+    const qs = q ? (ing.unit==='nombre' ? formatQty(q) : `${formatQty(q)} ${unitLabel(ing.unit)}`) : '';
+    return `<div class="ing-line"><span>${escapeHtml(p ? p.name : '(produit supprimé)')}</span><span class="il-qty">${qs}</span></div>`;
+  }).join('');
+  return `<div class="ing-head"><h3>Ingrédients</h3><button type="button" class="link-btn" data-toggle-edit-ings>✎ Modifier</button></div>
+    <div class="ing-lines">${lines || '<p class="subtle" style="margin:8px 0;">Aucun ingrédient.</p>'}</div>`;
+}
+function fitRecipeTitle(){
+  const t = document.getElementById('f-name');
+  if(t){ t.style.height='auto'; t.style.height = t.scrollHeight + 'px'; }
+}
+function rerenderRecipeForm(){
+  const f = document.getElementById('recipe-form');
+  if(f){ f.innerHTML = renderRecipeFormBody(); fitRecipeTitle(); }
+}
+function refreshServingsUI(){
+  const st = document.getElementById('servings-stepper');
+  if(st) st.innerHTML = stepperInnerHtml();
+  const blk = document.getElementById('ing-block');
+  if(blk) blk.innerHTML = ingredientsBlockHtml();
+}
+
+function renderRecipeFormBody(){
+  const r = window._editingRecipe;
+  const inCart = recipeInShoppingList(r);
+  const exists = !!state.recipes.find(x=>x.id===r.id);
+  return `
+    <input type="file" id="photo-input" accept="image/*" style="display:none;">
+    <div class="rb-band">
+      <div class="rb-left">
+        <textarea id="f-name" class="rb-title" rows="1" maxlength="80" placeholder="Nom du plat">${escapeHtml(r.name)}</textarea>
+        <div class="stepper" id="servings-stepper">${stepperInnerHtml()}</div>
+      </div>
+      <div id="rb-photo-slot">${photoThumbHtml()}</div>
+    </div>
+
+    <div class="ing-card" id="ing-block">${ingredientsBlockHtml()}</div>
+
+    <button class="toggle-steps" data-toggle-steps type="button">${window._showSteps ? '▾' : '▸'} Recette / notes</button>
+    <div class="field" id="steps-field" style="${window._showSteps ? '' : 'display:none;'} margin-top:8px;">
+      <textarea id="f-steps" placeholder="1. Faire revenir l'oignon...&#10;2. ...">${escapeHtml(r.steps||'')}</textarea>
+    </div>
+    ${exists ? `<button class="btn btn-danger del-recipe" data-delete-recipe="${r.id}" type="button">Supprimer ce plat</button>` : ''}
+
+    <div class="sticky-bar">
+      <button class="btn btn-soft-primary btn-save" data-save-recipe type="button">Enregistrer</button>
+      <button class="send-btn ${inCart?'remove-mode':''}" id="send-to-cart-btn" type="button" data-cart-action="${inCart?'remove':'send'}">${inCart ? '✕ Retirer de la liste' : '🛒 Envoyer dans la liste'}</button>
+    </div>
+  `;
+}
+
+/* ---------- COURSES TAB ---------- */
+function renderCoursesListInner(){
+  if(!state.shoppingList.checklist || state.shoppingList.checklist.length===0){
+    return `<div class="empty"><div class="em-icon">🛒</div><p>Ta liste de courses est vide.</p><p>Ajoute des produits ici, ou envoie un plat depuis l'onglet Plats.</p></div>`;
+  }
+  const byStore = {};
+  state.shoppingList.checklist.forEach(item=>{
+    const product = findProduct(item.productId);
+    const name = product ? product.name : (item.customName || '(produit supprimé)');
+    const sid = (product && product.storeId) ? product.storeId : '_none';
+    if(!byStore[sid]) byStore[sid]=[];
+    byStore[sid].push({...item, productName: name});
+  });
+
+  Object.keys(byStore).forEach(k=>{ byStore[k].sort((a,b)=>(a.checked?1:0)-(b.checked?1:0)); });
+  const totalItems = state.shoppingList.checklist.length;
+  const leftItems = state.shoppingList.checklist.filter(i=>!i.checked).length;
+  let html = `<div class="courses-counter"><span>${leftItems===0?'Tout est acheté ✓':`${leftItems} restant${leftItems>1?'s':''} sur ${totalItems}`}</span><div class="cc-bar"><div class="cc-fill" style="width:${Math.round((totalItems-leftItems)/totalItems*100)}%"></div></div></div>`;
+  const storeOrder = Object.keys(byStore).sort((a,b)=>{
+    if(a==='_none') return 1;
+    if(b==='_none') return -1;
+    return storeName(a).localeCompare(storeName(b));
+  });
+  storeOrder.forEach(sid=>{
+    const items = byStore[sid];
+    const doneCount = items.filter(i=>i.checked).length;
+    html += `<div class="ticket">
+      <div class="ticket-store">
+        <span class="stamp">${sid==='_none'?'Sans magasin':escapeHtml(storeName(sid))}</span>
+        <span class="count">${doneCount}/${items.length}</span>
+      </div>`;
+    items.forEach(item=>{
+      const qtyStr = item.qty ? (item.unit==='nombre' ? formatQty(item.qty) : `${formatQty(item.qty)} ${unitLabel(item.unit)}`) : '';
+      html += `<div class="ticket-item ${item.checked?'done':''}" data-toggle-item="${item.id}">
+        <span class="ti-name">${escapeHtml(item.productName)}</span>
+        <span class="ti-qty">${qtyStr}</span>
+        <button class="item-remove" data-remove-item="${item.id}" title="Retirer de la liste">✕</button>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  html += `<button class="btn btn-soft-danger btn-block" data-remove-purchased style="margin-bottom:10px;">Supprimer les éléments achetés</button>`;
+  html += `<button class="btn btn-soft-danger btn-block" data-clear-list style="margin-bottom:20px;">Vider la liste</button>`;
+  return html;
+}
+
+function attachCoursesListHandlers(container){
+  if(!container) return;
+  container.querySelectorAll('[data-toggle-item]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const id = el.getAttribute('data-toggle-item');
+      const item = state.shoppingList.checklist.find(i=>i.id===id);
+      if(item){ item.checked = !item.checked; await safeSet('shopping_list', state.shoppingList); updateCoursesList(); }
+    });
+  });
+  container.querySelectorAll('[data-remove-item]').forEach(el=>{
+    el.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const id = el.getAttribute('data-remove-item');
+      state.shoppingList.checklist = state.shoppingList.checklist.filter(i=>i.id!==id);
+      await safeSet('shopping_list', state.shoppingList);
+      updateCoursesList();
+    });
+  });
+  const removePurchasedBtn = container.querySelector('[data-remove-purchased]');
+  if(removePurchasedBtn) removePurchasedBtn.addEventListener('click', async ()=>{
+    state.shoppingList.checklist = state.shoppingList.checklist.filter(i=>!i.checked);
+    await withLoading(removePurchasedBtn, ()=>safeSet('shopping_list', state.shoppingList));
+    render();
+  });
+  const clearBtn = container.querySelector('[data-clear-list]');
+  if(clearBtn) clearBtn.addEventListener('click', async ()=>{
+    if(!confirm('Vider la liste de courses ?')) return;
+    state.shoppingList = { checklist: [] };
+    await withLoading(clearBtn, ()=>safeSet('shopping_list', state.shoppingList));
+    render();
+  });
+}
+function updateCoursesList(){
+  const container = document.getElementById('courses-list-container');
+  if(!container) return;
+  container.innerHTML = renderCoursesListInner();
+  attachCoursesListHandlers(container);
+}
+
+function renderCoursesTab(){
+  let html = `<div class="header"><h1>Courses</h1></div>`;
+  if(state.products.length>0){
+    html += `<div class="search-row">
+      <div class="prod-picker" style="flex:1;min-width:0;">
+        <input type="text" class="search-input prod-picker-input" id="courses-search" data-picker-context="courses-search" placeholder="Rechercher un produit à ajouter…" autocomplete="off" value="">
+        <div class="prod-picker-list" data-picker-context="courses-search"></div>
+      </div>
+      <button class="fab-inline" data-add-to-list type="button">+</button>
+    </div>`;
+  }
+  html += `<div id="courses-list-container">${renderCoursesListInner()}</div>`;
+  if(state.products.length===0){
+    html += `<button class="fab" data-add-to-list>+</button>`;
+  }
+  return html;
+}
+
+function addToListModal(){
+  return `<div class="modal-overlay" data-overlay>
+    <div class="modal">
+      <div class="modal-head"><h2>Ajouter un produit</h2><button class="modal-close" data-close-modal>✕</button></div>
+      <div class="field">
+        <label>Produit</label>
+        <div class="prod-picker">
+          <input type="text" class="prod-picker-input" id="add-prod-name" data-picker-context="addlist" placeholder="Rechercher un produit…" autocomplete="off">
+          <div class="prod-picker-list" data-picker-context="addlist"></div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Quantité (optionnel)</label><input type="number" min="0" step="any" id="add-prod-qty"></div>
+        <div class="field"><label>Unité</label>
+          <select id="add-prod-unit">${UNITS.map(u=>`<option value="${u.v}">${u.l}</option>`).join('')}</select>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" data-confirm-add-product>Ajouter à la liste</button>
+    </div>
+  </div>`;
+}
+
+function formatQty(q){
+  const rounded = Math.round(q*100)/100;
+  return rounded.toString().replace('.', ',');
+}
+
+/* ---------- MODAL PLUMBING ---------- */
+let modalHistoryDepth = 0;
+let programmaticBacks = 0;
+
+function showModal(html){
+  const activeEl = document.activeElement;
+  const keyboardOpen = activeEl && typeof activeEl.blur === 'function' && (activeEl.tagName==='INPUT' || activeEl.tagName==='TEXTAREA');
+  if(keyboardOpen){
+    activeEl.blur();
+    setTimeout(()=>showModalNow(html), 120);
+  } else {
+    showModalNow(html);
+  }
+}
+function showModalNow(html){
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstElementChild);
+  const overlay = document.body.lastElementChild;
+  overlay.addEventListener('click', modalClickHandler);
+  overlay.addEventListener('input', modalInputHandler);
+  overlay.addEventListener('change', modalChangeHandler);
+
+  modalHistoryDepth++;
+  history.pushState({modalDepth: modalHistoryDepth}, '', location.href);
+
+  let touchStartX = null;
+  overlay.addEventListener('touchstart', (e)=>{
+    if(e.target.closest('.photo-zone')) touchStartX = e.touches[0].clientX;
+  }, {passive:true});
+  overlay.addEventListener('touchend', (e)=>{
+    if(touchStartX===null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    touchStartX = null;
+    const total = (window._recipePhotos||[]).length;
+    if(total<2 || Math.abs(dx)<40) return;
+    window._photoIndex = ((window._photoIndex||0) + (dx<0?1:-1) + total) % total;
+    refreshPhotoUI();
+  }, {passive:true});
+}
+
+// Removes the topmost modal overlay and cleans up associated editing state.
+// fromPopstate=true means the browser already navigated back (hardware/gesture
+// back button) — don't call history.back() again in that case.
+function dismissTopModal(fromPopstate, forceDiscard){
+  const overlays = document.querySelectorAll('.modal-overlay');
+  if(overlays.length===0) return;
+  const top = overlays[overlays.length-1];
+  const isRecipeModal = !!top.querySelector('#recipe-form');
+  if(!forceDiscard && isRecipeModal && recipeHasUnsavedChanges()){
+    if(fromPopstate){
+      // the browser already consumed one history entry for this modal;
+      // restore it since we're intercepting the close (showModal below adds its own for the prompt).
+      history.pushState({modalDepth: modalHistoryDepth}, '', location.href);
+    }
+    showModal(unsavedChangesModal('close'));
+    return;
+  }
+  const isProductModal = !!top.querySelector('#f-pname');
+  const isStoresManager = !!top.querySelector('#stores-list');
+  top.remove();
+  if(isRecipeModal){
+    window._editingRecipe=null;
+    if(currentTab==='plats') updatePlatsList();
+  }
+  if(isProductModal) window._editingProduct=null;
+  if(isStoresManager) refreshProductStoreSelect();
+  window._pendingPickerContext=null;
+  if(modalHistoryDepth>0){
+    modalHistoryDepth--;
+    if(!fromPopstate){ programmaticBacks++; history.back(); }
+  }
+}
+function closeModal(){ document.querySelectorAll('.modal-overlay').forEach(o=>o.remove()); }
+function popModalHistory(){
+  if(modalHistoryDepth>0){ modalHistoryDepth--; programmaticBacks++; history.back(); }
+}
+
+window.addEventListener('popstate', ()=>{
+  if(programmaticBacks>0){ programmaticBacks--; return; }
+  if(document.querySelector('.modal-overlay')) dismissTopModal(true);
+});
+
+// Picker interactions (search dropdowns for products) are delegated globally
+// on document.body so they work both inside modals and in plain tab content
+// (e.g. the Courses tab's product finder), with one shared implementation.
+document.body.addEventListener('click', (e)=>{
+  const pickerInput = e.target.closest('.prod-picker-input');
+  if(pickerInput){
+    hideAllProdPickerLists();
+    showProdPickerList(pickerInput.getAttribute('data-picker-context'), pickerInput.value);
+    return;
+  }
+  if(!e.target.closest('.prod-picker')){
+    hideAllProdPickerLists();
+  }
+});
+document.body.addEventListener('input', (e)=>{
+  if(!e.target.matches('.prod-picker-input')) return;
+  const ctx = e.target.getAttribute('data-picker-context');
+  if(ctx.indexOf('ing:')===0){
+    const idx = parseInt(ctx.split(':')[1]);
+    if(window._editingRecipe) window._editingRecipe.ingredients[idx].productId = '';
+  } else if(ctx==='addlist'){
+    delete e.target.dataset.selectedId;
+  }
+  showProdPickerList(ctx, e.target.value);
+});
+// Selecting a picker suggestion must fire before the on-screen keyboard's
+// dismissal swallows the tap — mousedown/touchstart fire earlier than click.
+function handlePickerSelect(e){
+  const pickOpt = e.target.closest('.prod-pick-option:not(.no-match)');
+  if(pickOpt){
+    e.preventDefault();
+    const ctx = pickOpt.getAttribute('data-picker-context');
+    const product = findProduct(pickOpt.getAttribute('data-product-id'));
+    applyProductPickerSelection(ctx, product);
+    hideAllProdPickerLists();
+    return;
+  }
+  const pickCustom = e.target.closest('.prod-pick-custom[data-custom-name]');
+  if(pickCustom){
+    e.preventDefault();
+    const name = pickCustom.getAttribute('data-custom-name');
+    const input = document.getElementById('courses-search');
+    if(input) input.value = '';
+    hideAllProdPickerLists();
+    showModal(customItemAddModal(name));
+    return;
+  }
+  const pickNew = e.target.closest('.prod-pick-new[data-picker-context]');
+  if(pickNew){
+    e.preventDefault();
+    const ctx = pickNew.getAttribute('data-picker-context');
+    const inputEl = document.querySelector(`.prod-picker-input[data-picker-context="${ctx}"]`);
+    const typed = inputEl ? inputEl.value.trim() : '';
+    window._pendingPickerContext = ctx;
+    hideAllProdPickerLists();
+    showModal(productFormModal(null, typed));
+    return;
+  }
+  const quickAddProduct = e.target.closest('[data-quick-add-product]');
+  if(quickAddProduct){
+    e.preventDefault();
+    showModal(productFormModal(null, productSearchQuery.trim()));
+    return;
+  }
+  const quickAddRecipe = e.target.closest('[data-quick-add-recipe]');
+  if(quickAddRecipe){
+    e.preventDefault();
+    recipeDetailModal(null, platsSearchQuery.trim());
+  }
+}
+document.body.addEventListener('mousedown', handlePickerSelect);
+document.body.addEventListener('touchstart', handlePickerSelect, {passive:false});
+
+function modalInputHandler(e){
+  const r = window._editingRecipe;
+  if(e.target.id==='f-pname' && window._editingProduct){ window._editingProduct.name = e.target.value; return; }
+  if(!r) return;
+  if(e.target.id==='f-name'){
+    if(e.target.value.indexOf('\n')>=0) e.target.value = e.target.value.replace(/\n/g,' ');
+    r.name = e.target.value;
+    fitRecipeTitle();
+  }
+  else if(e.target.id==='f-servings'){ r.baseServings = parseFloat(e.target.value)||1; window._sendServings = r.baseServings; }
+  else if(e.target.id==='f-steps') r.steps = e.target.value;
+  else if(e.target.hasAttribute('data-ing-field')){
+    const idx = parseInt(e.target.getAttribute('data-ing-idx'));
+    const field = e.target.getAttribute('data-ing-field');
+    r.ingredients[idx][field] = e.target.value;
+  }
+}
+function modalChangeHandler(e){
+  if(e.target.id==='f-pstore' && window._editingProduct){
+    if(e.target.value === '__manage__'){
+      e.target.value = window._editingProduct.storeId || '';
+      showModal(storesManagerModal());
+    } else {
+      window._editingProduct.storeId = e.target.value;
+    }
+    return;
+  }
+  if(e.target.id==='photo-input'){ handlePhotoSelected(e.target.files[0]); return; }
+  modalInputHandler(e);
+}
+
+async function handlePhotoSelected(file){
+  if(!file) return;
+  if(!window._recipePhotos) window._recipePhotos = [];
+  if(window._recipePhotos.length >= MAX_PHOTOS){ alert(`Maximum ${MAX_PHOTOS} photos par plat.`); return; }
+  try{
+    const dataUrl = await resizeImage(file, 1000, 0.75);
+    window._recipePhotos.push(dataUrl);
+    window._photoIndex = window._recipePhotos.length - 1;
+    refreshPhotoUI();
+  }catch(e){ alert("Impossible de charger cette photo."); }
+}
+function resizeImage(file, maxDim, quality){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w=img.width,h=img.height;
+        if(w>h && w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; }
+        else if(h>=w && h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; }
+        const canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror=reject;
+      img.src=e.target.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function modalClickHandler(e){
+  const overlay = e.currentTarget;
+
+  if(e.target.hasAttribute('data-overlay') || e.target.closest('[data-close-modal]')){
+    dismissTopModal(false);
+    return;
+  }
+  const stepBtn = e.target.closest('[data-serv-step]');
+  if(stepBtn){
+    const rr = window._editingRecipe;
+    const d = parseInt(stepBtn.getAttribute('data-serv-step'));
+    window._sendServings = Math.max(1, (window._sendServings || rr.baseServings) + d);
+    refreshServingsUI();
+    return;
+  }
+  if(e.target.closest('[data-toggle-edit-ings]')){
+    const rr = window._editingRecipe;
+    if(window._editIngs){
+      rr.ingredients = rr.ingredients.filter(i=>i.productId && i.productId.trim());
+      window._editIngs = false;
+    } else {
+      if(rr.ingredients.length===0) rr.ingredients.push({id:uid(),productId:'',qty:1,unit:'nombre'});
+      window._editIngs = true;
+    }
+    window._sendServings = rr.baseServings;
+    rerenderRecipeForm();
+    return;
+  }
+  if(e.target.closest('[data-open-photos]')){
+    showModal(photoViewerModal());
+    return;
+  }
+  if(e.target.closest('[data-add-ing]')){
+    window._editingRecipe.ingredients.push({id:uid(),productId:'',qty:1,unit:'nombre'});
+    rerenderRecipeForm();
+    return;
+  }
+  const rmBtn = e.target.closest('[data-remove-ing]');
+  if(rmBtn){
+    const idx = parseInt(rmBtn.getAttribute('data-remove-ing'));
+    window._editingRecipe.ingredients.splice(idx,1);
+    if(window._editingRecipe.ingredients.length===0) window._editingRecipe.ingredients.push({id:uid(),productId:'',qty:1,unit:'nombre'});
+    rerenderRecipeForm();
+    return;
+  }
+  if(e.target.closest('[data-toggle-steps]')){
+    window._showSteps = !window._showSteps;
+    rerenderRecipeForm();
+    return;
+  }
+  if(e.target.closest('[data-take-photo]')){
+    const input = document.getElementById('photo-input');
+    if(input) input.click();
+    return;
+  }
+  if(e.target.closest('[data-remove-photo]')){
+    const idx = window._photoIndex || 0;
+    if(window._recipePhotos && window._recipePhotos.length){
+      window._recipePhotos.splice(idx,1);
+      window._photoIndex = Math.max(0, idx-1);
+    }
+    refreshPhotoUI();
+    return;
+  }
+  const photoNav = e.target.closest('[data-photo-nav]');
+  if(photoNav){
+    const dir = parseInt(photoNav.getAttribute('data-photo-nav'));
+    const total = (window._recipePhotos||[]).length;
+    window._photoIndex = ((window._photoIndex||0) + dir + total) % total;
+    refreshPhotoUI();
+    return;
+  }
+  const photoDot = e.target.closest('[data-photo-dot]');
+  if(photoDot){
+    window._photoIndex = parseInt(photoDot.getAttribute('data-photo-dot'));
+    refreshPhotoUI();
+    return;
+  }
+  const cartBtnEl = e.target.closest('[data-cart-action]');
+  if(cartBtnEl){
+    const action = cartBtnEl.getAttribute('data-cart-action');
+    if(action==='remove') removeRecipeFromCart(cartBtnEl);
+    else if(recipeHasUnsavedChanges()) showModal(unsavedChangesModal('send'));
+    else sendRecipeToCart(cartBtnEl);
+    return;
+  }
+  const unsavedSaveBtn = e.target.closest('[data-unsaved-save]');
+  if(unsavedSaveBtn){
+    const ctx = window._unsavedPromptContext;
+    withLoading(unsavedSaveBtn, async ()=>{
+      if(ctx==='send') await sendRecipeToCart();
+      await saveRecipeFromForm();
+      updateEditingSnapshot();
+    }).then(()=>{
+      overlay.remove(); popModalHistory();
+      if(ctx==='close'){ dismissTopModal(false); render(); }
+      else { refreshCartButton(); }
+    });
+    return;
+  }
+  const unsavedDiscardBtn = e.target.closest('[data-unsaved-discard]');
+  if(unsavedDiscardBtn){
+    const ctx = window._unsavedPromptContext;
+    overlay.remove(); popModalHistory();
+    if(ctx==='send') sendRecipeToCart();
+    else { dismissTopModal(false, true); render(); }
+    return;
+  }
+  const saveRecipeBtn = e.target.closest('[data-save-recipe]');
+  if(saveRecipeBtn){
+    withLoading(saveRecipeBtn, ()=>saveRecipeFromForm()).then(()=>{ window._editingRecipe=null; overlay.remove(); popModalHistory(); render(); });
+    return;
+  }
+  const delR = e.target.closest('[data-delete-recipe]');
+  if(delR){
+    const id = delR.getAttribute('data-delete-recipe');
+    if(confirm('Supprimer ce plat ?')){
+      state.recipes = state.recipes.filter(r=>r.id!==id);
+      withLoading(delR, ()=>safeSet('recipes', state.recipes)).then(()=>{ overlay.remove(); popModalHistory(); render(); });
+    }
+    return;
+  }
+  const saveProdBtn = e.target.closest('[data-save-product]');
+  if(saveProdBtn){
+    withLoading(saveProdBtn, ()=>saveProductFromForm()).then((savedProduct)=>{
+      if(!savedProduct) return;
+      overlay.remove();
+      popModalHistory();
+      if(window._pendingPickerContext){
+        applyProductPickerSelection(window._pendingPickerContext, savedProduct);
+        window._pendingPickerContext = null;
+      } else {
+        render();
+      }
+    });
+    return;
+  }
+  const delP = e.target.closest('[data-delete-product]');
+  if(delP){
+    const id = delP.getAttribute('data-delete-product');
+    if(confirm('Supprimer ce produit ?')){
+      state.products = state.products.filter(p=>p.id!==id);
+      withLoading(delP, ()=>safeSet('products', state.products)).then(()=>{ overlay.remove(); popModalHistory(); render(); });
+    }
+    return;
+  }
+  const addStoreBtn = e.target.closest('[data-add-store-inline]');
+  if(addStoreBtn){
+    const input = document.getElementById('new-store-inline');
+    const name = input.value.trim();
+    if(!name) return;
+    state.stores.push({id:uid(), name});
+    withLoading(addStoreBtn, ()=>safeSet('stores', state.stores)).then(()=>{
+      input.value='';
+      document.getElementById('stores-list').innerHTML = renderStoreChips();
+    });
+    return;
+  }
+  const editS = e.target.closest('[data-edit-store]');
+  if(editS){ startStoreRename(editS.getAttribute('data-edit-store')); return; }
+  const delS = e.target.closest('[data-delete-store]');
+  if(delS){
+    const id = delS.getAttribute('data-delete-store');
+    state.stores = state.stores.filter(s=>s.id!==id);
+    state.products.forEach(p=>{ if(p.storeId===id) p.storeId=''; });
+    withLoading(delS, ()=>Promise.all([safeSet('stores', state.stores), safeSet('products', state.products)])).then(()=>{
+      document.getElementById('stores-list').innerHTML = renderStoreChips();
+      refreshProductStoreSelect();
+    });
+    return;
+  }
+  const confirmAddBtn = e.target.closest('[data-confirm-add-product]');
+  if(confirmAddBtn){ confirmAddProductToList(overlay, confirmAddBtn); return; }
+  const confirmAddSpecificBtn = e.target.closest('[data-confirm-add-specific]');
+  if(confirmAddSpecificBtn){ confirmAddSpecificProduct(overlay, confirmAddSpecificBtn); return; }
+}
+
+function resolveOrCreateProduct(name){
+  const key = name.trim();
+  if(!key) return null;
+  let p = findProductByName(key);
+  if(!p){ p = { id: uid(), name: key, storeId: '' }; state.products.push(p); }
+  return p;
+}
+
+async function saveProductFromForm(){
+  const p = window._editingProduct;
+  if(!p.name || !p.name.trim()){ alert('Donne un nom au produit.'); return null; }
+  const idx = state.products.findIndex(x=>x.id===p.id);
+  if(idx>=0) state.products[idx] = p; else state.products.push(p);
+  await safeSet('products', state.products);
+  window._editingProduct = null;
+  return p;
+}
+
+async function saveRecipeFromForm(){
+  const r = window._editingRecipe;
+  if(!r.name || !r.name.trim()){ alert('Donne un nom au plat.'); return; }
+  r.ingredients = r.ingredients.filter(i=>i.productId && i.productId.trim());
+  r.ingredients.forEach(i=>{ i.qty = parseFloat(i.qty)||0; });
+  const photos = window._recipePhotos || [];
+  r.photoCount = photos.length;
+  delete r.hasPhoto;
+
+  const idx = state.recipes.findIndex(x=>x.id===r.id);
+  if(idx>=0) state.recipes[idx] = r; else state.recipes.push(r);
+
+  photoCache[r.id] = photos[0] || null;
+  if(photos.length===0) delete photoCache[r.id];
+
+  const tasks = [safeSet('recipes', state.recipes), safeSet('photo:'+r.id, photos)];
+  await Promise.all(tasks);
+}
+
+async function sendRecipeToCart(btnParam){
+  const r = window._editingRecipe;
+  const base = parseFloat(r.baseServings) || 1;
+  const target = window._sendServings || base;
+  const factor = target / base;
+
+  const validIngs = r.ingredients.filter(i=>i.productId && i.productId.trim());
+  if(validIngs.length===0){ alert('Ajoute au moins un ingrédient.'); return; }
+
+  validIngs.forEach(ing=>{
+    const qty = (parseFloat(ing.qty)||0) * factor;
+    const unit = ing.unit;
+    const existing = state.shoppingList.checklist.find(it=>it.productId===ing.productId && it.unit===unit);
+    if(existing){ existing.qty += qty; existing.sourceRecipeId = r.id; existing.sourceServings = target; }
+    else state.shoppingList.checklist.push({ id: uid(), productId: ing.productId, qty, unit, checked:false, sourceRecipeId: r.id, sourceServings: target });
+  });
+
+  const btn = btnParam || document.getElementById('send-to-cart-btn');
+  await withLoading(btn, ()=>safeSet('shopping_list', state.shoppingList));
+  showToast('Ajouté à la liste de courses');
+  haptic(40);
+  refreshCartButton();
+}
+
+async function removeRecipeFromCart(btnParam){
+  const r = window._editingRecipe;
+  if(!r) return;
+  state.shoppingList.checklist = state.shoppingList.checklist.filter(it=>!(it.sourceRecipeId===r.id && !it.checked));
+  const btn = btnParam || document.getElementById('send-to-cart-btn');
+  await withLoading(btn, ()=>safeSet('shopping_list', state.shoppingList));
+  showToast('Retiré de la liste de courses');
+  haptic(25);
+  refreshCartButton();
+}
+
+function refreshCartButton(){
+  const r = window._editingRecipe;
+  const btn = document.getElementById('send-to-cart-btn');
+  if(!btn || !r) return;
+  const inCart = recipeInShoppingList(r);
+  btn.classList.toggle('remove-mode', inCart);
+  btn.setAttribute('data-cart-action', inCart ? 'remove' : 'send');
+  btn.innerHTML = inCart ? '✕ Retirer de la liste' : '🛒 Envoyer dans la liste';
+}
+
+function confirmAddProductToList(overlay, btnParam){
+  const nameInput = document.getElementById('add-prod-name');
+  const name = nameInput.value.trim();
+  if(!name){ alert('Indique un nom de produit.'); return; }
+  const qtyVal = document.getElementById('add-prod-qty').value;
+  const unit = document.getElementById('add-prod-unit').value;
+  const p = nameInput.dataset.selectedId ? (findProduct(nameInput.dataset.selectedId) || resolveOrCreateProduct(name)) : resolveOrCreateProduct(name);
+  const qty = qtyVal ? parseFloat(qtyVal) : 0;
+  const existing = state.shoppingList.checklist.find(it=>it.productId===p.id && it.unit===unit);
+  if(existing) existing.qty += qty;
+  else state.shoppingList.checklist.push({ id: uid(), productId:p.id, qty, unit, checked:false });
+  withLoading(btnParam, ()=>Promise.all([safeSet('products', state.products), safeSet('shopping_list', state.shoppingList)])).then(()=>{
+    overlay.remove(); popModalHistory(); render();
+  });
+}
+
+function confirmAddSpecificProduct(overlay, btnParam){
+  const id = window._addingProductId;
+  const qty = parseFloat(document.getElementById('qty-for-product').value)||0;
+  const unit = document.getElementById('unit-for-product').value;
+  const custom = window._addingCustomName;
+  if(custom){
+    const key = normalizeSearch(custom.trim());
+    const ex = state.shoppingList.checklist.find(it=>!it.productId && it.customName && normalizeSearch(it.customName)===key && it.unit===unit && !it.checked);
+    if(ex) ex.qty += qty;
+    else state.shoppingList.checklist.push({ id: uid(), productId:'', customName:custom.trim(), qty, unit, checked:false });
+  } else {
+    const existing = state.shoppingList.checklist.find(it=>it.productId===id && it.unit===unit);
+    if(existing) existing.qty += qty;
+    else state.shoppingList.checklist.push({ id: uid(), productId:id, qty, unit, checked:false });
+  }
+  withLoading(btnParam, ()=>safeSet('shopping_list', state.shoppingList)).then(()=>{
+    window._addingCustomName = null;
+    overlay.remove(); popModalHistory(); showToast('Ajouté à la liste de courses'); haptic(30); render();
+  });
+}
+
+// Shows a spinner + disables a button while an async action runs, so taps
+// always get visible feedback even when the network call takes a moment.
+function withLoading(btn, fn){
+  if(btn && !btn.disabled){
+    btn.dataset.prevHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.style.opacity = '.7';
+    btn.innerHTML = `<span class="btn-spinner"></span>${btn.dataset.prevHtml}`;
+  }
+  const restore = () => {
+    if(btn && document.body.contains(btn) && btn.dataset.prevHtml !== undefined){
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.innerHTML = btn.dataset.prevHtml;
+      delete btn.dataset.prevHtml;
+    }
+  };
+  const result = Promise.resolve(fn());
+  const minDelay = sleep(330); // keep the spinner visible a moment even on a fast network
+  return Promise.all([result, minDelay]).then(([r])=>r).finally(restore);
+}
+
+function showToast(msg){
+  const el = document.createElement('div');
+  el.className='toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2200);
+}
+
+/* ---------- HANDLERS ---------- */
+function attachHandlers(){
+  const app = document.getElementById('app');
+
+  attachProductRowHandlers(document.getElementById('products-list-container'));
+  const productSearchInput = app.querySelector('#product-search');
+  if(productSearchInput){
+    productSearchInput.addEventListener('input', (e)=>{ productSearchQuery = e.target.value; updateProductsList(); });
+  }
+  const newProdBtn = app.querySelector('[data-new-product]');
+  if(newProdBtn) newProdBtn.addEventListener('click', ()=>showModal(productFormModal(null)));
+
+  const newRecipeBtn = app.querySelector('[data-new-recipe]');
+  if(newRecipeBtn) newRecipeBtn.addEventListener('click', ()=>recipeDetailModal(null));
+  attachPlatsRowHandlers(document.getElementById('plats-list-container'));
+  const platsSearchInput = app.querySelector('#plats-search');
+  if(platsSearchInput){
+    platsSearchInput.addEventListener('input', (e)=>{ platsSearchQuery = e.target.value; updatePlatsList(); });
+  }
+
+  const addToListBtn = app.querySelector('[data-add-to-list]');
+  if(addToListBtn) addToListBtn.addEventListener('click', ()=>showModal(addToListModal()));
+  attachCoursesListHandlers(document.getElementById('courses-list-container'));
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- INIT ---------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    currentTab = t.dataset.tab;
+    productSearchQuery = '';
+    platsSearchQuery = '';
+    history.replaceState(null, '', '#'+currentTab);
+    render();
+  });
+});
+
+async function init(){
+  document.getElementById('app').innerHTML = '<div class="loading">Chargement…</div>';
+  if(navigator.onLine === false){
+    document.getElementById('app').innerHTML = `<div class="empty">
+      <div class="em-icon">📡</div>
+      <p>Pas de connexion internet.</p>
+      <p>Reconnecte-toi puis réessaie.</p>
+      <button class="btn btn-primary" id="retry-init" style="margin-top:14px;">Réessayer</button>
+    </div>`;
+    document.getElementById('retry-init').addEventListener('click', init);
+    return;
+  }
+  await loadAll();
+  render();
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async ()=>{
+    if(document.querySelector('.modal-overlay')) return;
+    const fresh = await safeGet('shopping_list');
+    if(fresh){ state.shoppingList = fresh; if(currentTab==='courses') updateCoursesList(); }
+  }, 6000);
+}
+init();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
